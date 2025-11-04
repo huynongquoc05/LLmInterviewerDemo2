@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Chi tiết Vectorstore</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ base_path }}{{ url_for('static', filename='styles.css') }}">
+  <style>
+
+    .card {
+      border: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      border-radius: 10px;
+    }
+    .info-table th {
+      width: 200px;
+      color: #555;
+    }
+    .chunk-card {
+      background: #fff;
+      padding: 15px;
+      margin-bottom: 12px;
+      border-radius: 10px;
+      border-left: 4px solid #0d6efd;
+    }
+    pre {
+      background: #f8f9fa;
+      padding: 8px;
+      border-radius: 5px;
+      white-space: pre-wrap;
+    }
+    .btn-custom {
+      background: #0d6efd;
+      color: white;
+    }
+    .btn-custom:hover {
+      background: #0b5ed7;
+      color: white;
+    }
+  </style>
+</head>
+<body class="container py-4">
+
+  <h2><i class="fa-solid fa-database me-2 text-primary"></i>Chi tiết Vectorstore</h2>
+
+  <div id="meta" class="card p-3 mb-4">
+    <div class="text-center text-secondary">Đang tải metadata...</div>
+  </div>
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4><i class="fa-solid fa-layer-group me-2 text-secondary"></i>Các Chunks</h4>
+    <button class="btn btn-custom" id="showChunksBtn">
+      <i class="fa-solid fa-eye me-2"></i>Hiển thị các chunks
+    </button>
+  </div>
+
+  <div id="chunks"></div>
+
+  <script>
+  const vectorstoreId = "{{ vectorstore_id }}";
+  const basePath = window.location.pathname.startsWith('/iview1') ? '/iview1' : '';
+
+  // 🧩 Hiển thị metadata đẹp
+  fetch(`${basePath}/embedding/info/${vectorstoreId}`)
+    .then(res => res.json())
+    .then(data => {
+      if (!data.success) throw new Error(data.error);
+      const vs = data.vectorstore;
+      const meta = document.getElementById('meta');
+      const createdAt = new Date(vs.created_at?.$date || vs.created_at).toLocaleString("vi-VN");
+
+      meta.innerHTML = `
+        <table class="table table-sm info-table mb-0">
+          <tr><th>ID</th><td>${vs._id?.$oid || 'N/A'}</td></tr>
+          <tr><th>Tên Vectorstore</th><td>${vs.vectorstore_name}</td></tr>
+          <tr>
+          <th>PDF gốc</th>
+          <td>
+            <i class="fa-regular fa-file-pdf text-danger"></i>
+            <a href="${basePath}${vs.custom?.original_path?.includes('uploads')
+          ? vs.custom.original_path.replace(/^[\\/]+/, '/').replace(/\\/g, '/')
+          : '/uploads/' + vs.custom.original_path.replace(/^[\\/]+/, '').replace(/\\/g, '/')}"
+   target="_blank">
+  ${vs.pdf_file}
+</a>
+
+          </td>
+
+          </tr>
+
+          <tr><th>Kích thước file</th><td>${vs.file_size_mb.toFixed(2)} MB</td></tr>
+          <tr><th>Số lượng chunks</th><td>${vs.num_chunks}</td></tr>
+          <tr><th>Model</th><td>${vs.model_info?.name || vs.model_name}</td></tr>
+          <tr><th>Ngôn ngữ hỗ trợ</th><td>${vs.model_info?.languages?.join(', ') || '-'}</td></tr>
+          <tr><th>Mô tả model</th><td>${vs.model_info?.description || '-'}</td></tr>
+          <tr><th>Chiến lược tách đoạn</th><td>${vs.splitter_strategy}</td></tr>
+          <tr><th>Chunk size / overlap</th><td>${vs.chunk_size} / ${vs.chunk_overlap}</td></tr>
+          <tr><th>Trạng thái</th><td><span class="badge bg-success">${vs.status}</span></td></tr>
+          <tr><th>Ngày tạo</th><td>${createdAt}</td></tr>
+        </table>
+      `;
+    })
+    .catch(err => {
+      document.getElementById('meta').innerHTML =
+        `<div class="alert alert-danger">Lỗi tải metadata: ${err}</div>`;
+    });
+
+  // 📄 Nút hiển thị chunks
+  document.getElementById('showChunksBtn').addEventListener('click', () => {
+    const btn = document.getElementById('showChunksBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Đang tải...';
+
+    fetch(`${basePath}/embedding/chunks/${vectorstoreId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (!data.success) throw new Error(data.error);
+        const container = document.getElementById('chunks');
+        container.innerHTML = data.chunks.map(chunk => `
+          <div class="chunk-card">
+            <div class="d-flex justify-content-between">
+              <strong>Chunk #${chunk.index}</strong>
+              <span class="text-muted">${(chunk.content.length / 1600 * 100).toFixed(0)}% độ dài</span>
+            </div>
+            <pre>${chunk.content}</pre>
+          </div>
+        `).join('');
+      })
+      .catch(err => alert('Lỗi tải chunks: ' + err))
+      .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-eye me-2"></i>Hiển thị các chunks';
+      });
+  });
+  </script>
+</body>
+</html>

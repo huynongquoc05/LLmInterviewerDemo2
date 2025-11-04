@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vector Store Management</title>
+    <link rel="stylesheet" href="{{ base_path }}{{ url_for('static', filename='styles.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area.dragover {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+            border-color: #764ba2;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+
+        .file-info {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #f7fafc;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .progress-container {
+            margin-top: 1.5rem;
+            display: none;
+        }
+
+        .progress-bar-custom {
+            width: 100%;
+            height: 30px;
+            background: #e2e8f0;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill-custom {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        .vectorstore-list {
+            display: grid;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .vectorstore-item {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .vectorstore-item:hover {
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .vectorstore-info h4 {
+            margin: 0 0 0.5rem 0;
+            color: #2d3748;
+        }
+
+        .vectorstore-meta {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.875rem;
+            color: #718096;
+        }
+
+        .vectorstore-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .badge-warning {
+            background: #feebc8;
+            color: #744210;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .tab {
+            padding: 1rem 2rem;
+            cursor: pointer;
+            border: none;
+            background: none;
+            color: #718096;
+            font-weight: 500;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab:hover {
+            color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+    <script>
+        let currentFile = null;
+        const basePath = window.location.pathname.startsWith('/iview1') ? '/iview1' : '';
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+        }
+
+        function setupDragDrop() {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('pdfFile');
+
+            uploadArea.addEventListener('click', () => fileInput.click());
+
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    fileInput.files = files;
+                    handleFileSelect({ target: fileInput });
+                }
+            });
+
+            fileInput.addEventListener('change', handleFileSelect);
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.name.toLowerCase().endsWith('.pdf')) {
+                alert('Vui lòng chọn file PDF!');
+                return;
+            }
+
+            currentFile = file;
+
+            const fileInfo = document.getElementById('fileInfo');
+            const fileName = document.getElementById('fileName');
+            const fileSize = document.getElementById('fileSize');
+
+            fileName.textContent = file.name;
+            fileSize.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+            fileInfo.style.display = 'block';
+        }
+
+        // embedding.html - Sửa hàm uploadAndProcess()
+
+        async function uploadAndProcess() {
+            if (!currentFile) {
+                alert('Vui lòng chọn file PDF!');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('pdf_file', currentFile);
+            formData.append('chunk_size', document.getElementById('chunkSize').value);
+            formData.append('chunk_overlap', document.getElementById('chunkOverlap').value);
+            formData.append('model_name', document.getElementById('modelName').value);
+            formData.append('splitter_strategy', document.getElementById('splitterStrategy').value);
+
+            const progressContainer = document.getElementById('progressContainer');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+
+            progressContainer.style.display = 'block';
+            document.getElementById('uploadBtn').disabled = true;
+
+            try {
+                const response = await fetch(`${basePath}/embedding/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                // ✅ THÊM: Kiểm tra unauthorized
+                if (response.status === 401) {
+                    alert('Vui lòng đăng nhập để upload file');
+                    window.location.href = `${basePath}/login`;
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error('Upload failed');
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const text = decoder.decode(value);
+                    const lines = text.split('\n').filter(l => l.trim());
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+
+                                if (data.progress !== undefined) {
+                                    progressFill.style.width = `${data.progress}%`;
+                                    progressText.textContent = `${data.stage}: ${data.progress}%`;
+                                }
+
+                                if (data.status === 'completed') {
+                                    setTimeout(() => {
+                                        alert('Vectorstore đã được tạo thành công!');
+                                        resetForm();
+                                        loadVectorstores();
+                                        switchTab('list');
+                                    }, 500);
+                                }
+
+                                if (data.status === 'error') {
+                                    throw new Error(data.message);
+                                }
+                            } catch (e) {
+                                console.error('Parse error:', e);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                alert('Lỗi: ' + error.message);
+                console.error('Upload error:', error);
+            } finally {
+                document.getElementById('uploadBtn').disabled = false;
+            }
+        }
+
+        function resetForm() {
+            currentFile = null;
+            document.getElementById('pdfFile').value = '';
+            document.getElementById('fileInfo').style.display = 'none';
+            document.getElementById('progressContainer').style.display = 'none';
+            document.getElementById('progressFill').style.width = '0%';
+        }
+
+        // embedding.html - Sửa hàm loadVectorstores()
+
+        async function loadVectorstores() {
+            try {
+                const response = await fetch(`${basePath}/embedding/list`);
+
+                // ✅ THÊM: Kiểm tra unauthorized
+                if (response.status === 401) {
+                    const data = await response.json();
+                    alert('Vui lòng đăng nhập để xem danh sách vectorstores');
+                    window.location.href = data.redirect || `${basePath}/login`;
+                    return;
+                }
+
+                const data = await response.json();
+
+                const listContainer = document.getElementById('vectorstoreList');
+
+                if (data.vectorstores.length === 0) {
+                    listContainer.innerHTML = '<p style="text-align:center; color:#718096;">Chưa có vectorstore nào</p>';
+                    return;
+                }
+
+                listContainer.innerHTML = data.vectorstores.map(vs => `
+                <div class="vectorstore-item">
+                    <div class="vectorstore-info">
+                        <h4><i class="fas fa-database"></i> ${vs.pdf_file}</h4>
+                        <div class="vectorstore-meta">
+                            <span><i class="fas fa-cube"></i> ${vs.model_info.name}</span>
+                            <span><i class="fas fa-layer-group"></i> ${vs.num_chunks} chunks</span>
+                            <span><i class="fas fa-file"></i> ${vs.file_size_mb.toFixed(2)} MB</span>
+                            <span><i class="fas fa-clock"></i> ${new Date(vs.created_at).toLocaleString('vi-VN')}</span>
+                        </div>
+                    </div>
+                    <div class="vectorstore-actions">
+                        <span class="badge badge-success">${vs.status}</span>
+                        <button class="btn btn-info btn-sm" onclick="viewVectorstoreDetail('${vs._id}')">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="deleteVectorstore('${vs._id}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                `).join('');
+
+            } catch (error) {
+                console.error('Load error:', error);
+                alert('Lỗi khi tải danh sách vectorstores');
+            }
+        }
+
+        function viewVectorstoreDetail(id) {
+            window.location.href = `${basePath}/embedding/detail/${id}`;
+        }
+
+
+        async function deleteVectorstore(id) {
+            if (!confirm('Báº¡n cÃ³ cháº¯c muá»‘n xÃ³a vectorstore nÃ y?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${basePath}/embedding/delete/${id}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('ÄÃ£ xÃ³a vectorstore!');
+                    loadVectorstores();
+                } else {
+                    alert('Lá»—i: ' + data.message);
+                }
+            } catch (error) {
+                alert('Lá»—i khi xÃ³a: ' + error.message);
+            }
+        }
+
+        // embedding.html - Sửa hàm deleteVectorstore()
+
+        async function deleteVectorstore(id) {
+            if (!confirm('Bạn có chắc muốn xóa vectorstore này?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${basePath}/embedding/delete/${id}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                // ✅ THÊM: Xử lý các lỗi cụ thể
+                if (response.status === 401) {
+                    alert('Vui lòng đăng nhập lại');
+                    window.location.href = `${basePath}/login`;
+                    return;
+                }
+
+                if (response.status === 403) {
+                    alert('Bạn không có quyền xóa vectorstore này!');
+                    return;
+                }
+
+                if (data.success) {
+                    alert('Đã xóa vectorstore!');
+                    loadVectorstores();
+                } else {
+                    alert('Lỗi: ' + data.message);
+                }
+            } catch (error) {
+                alert('Lỗi khi xóa: ' + error.message);
+            }
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            setupDragDrop();
+            loadVectorstores();
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-database"></i>
+                    <span>Vector Store Management</span>
+                </div>
+                <a href="{{ base_path }}/" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Quay lại
+                </a>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab active" data-tab="upload" onclick="switchTab('upload')">
+                    <i class="fas fa-upload"></i> Tải lên
+                </button>
+                <button class="tab" data-tab="list" onclick="switchTab('list')">
+                    <i class="fas fa-list"></i> Danh sách
+                </button>
+            </div>
+
+            <!-- Upload Tab -->
+            <div id="upload-tab" class="tab-content active">
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-file-upload"></i> Tải lên PDF và tạo Vector Store</h2>
+                    </div>
+                    <div class="card-body">
+                        <!-- Upload Area -->
+                        <div id="uploadArea" class="upload-area">
+                            <div class="upload-icon">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                            </div>
+                            <h3>Kéo thả file PDF vào đây</h3>
+                            <p>hoặc click để chọn file</p>
+                            <input type="file" id="pdfFile" accept=".pdf" style="display: none;">
+                        </div>
+
+                        <!-- File Info -->
+                        <div id="fileInfo" class="file-info">
+                            <p><strong>File:</strong> <span id="fileName"></span></p>
+                            <p><strong>Kích thước:</strong> <span id="fileSize"></span></p>
+                        </div>
+
+                        <!-- Settings -->
+                        <div style="margin-top: 2rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                            <div class="form-group">
+                                <label>Chunk Size:</label>
+                                <input type="number" id="chunkSize" class="form-control" value="1600" min="100" max="5000">
+                            </div>
+                            <div class="form-group">
+                                <label>Chunk Overlap:</label>
+                                <input type="number" id="chunkOverlap" class="form-control" value="400" min="0" max="1000">
+                            </div>
+                            <div class="form-group">
+                                <label>Model:</label>
+                                <select id="modelName" class="form-control">
+                                    <option value="intfloat/multilingual-e5-large-instruct">Multilingual E5 Large (Recommended)</option>
+                                    <option value="hiieu/halong_embedding">Halong Embedding (Vietnamese)</option>
+                                    <option value="AITeamVN/Vietnamese_Embedding">Vietnamese Embedding</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Splitter Strategy:</label>
+                                <select id="splitterStrategy" class="form-control">
+                                    <option value="nltk">NLTK (Recommended)</option>
+                                    <option value="recursive">Recursive Character</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar -->
+                        <div id="progressContainer" class="progress-container">
+                            <div class="progress-bar-custom">
+                                <div id="progressFill" class="progress-fill-custom" style="width: 0%;">
+                                    <span id="progressText">0%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Upload Button -->
+                        <button id="uploadBtn" class="btn btn-primary btn-start" onclick="uploadAndProcess()" style="margin-top: 1.5rem;">
+                            <i class="fas fa-cog"></i> Xử lý và tạo Vector Store
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- List Tab -->
+            <div id="list-tab" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-database"></i> Danh sách Vector Stores</h2>
+                        <button class="btn btn-secondary" onclick="loadVectorstores()">
+                            <i class="fas fa-sync"></i> Làm mới
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="vectorstoreList" class="vectorstore-list">
+                            <p style="text-align:center; color:#718096;">Đang tải...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <div class="loading-text">Đang xử lý...</div>
+    </div>
+</body>
+</html>

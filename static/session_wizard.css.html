@@ -1,0 +1,287 @@
+/*
+ * styles.css đã chứa các style chung cho:
+ * .container, .header, .card, .btn, .form-control, .loading-overlay, etc.
+ * File này chỉ định nghĩa các style dành riêng cho trang quản lý session.
+ */
+
+/* --- Session Wizard & Step Indicator --- */
+.session-wizard {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.step-indicator {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    padding: 0;
+    list-style: none;
+}
+
+.step {
+    flex: 1;
+    text-align: center;
+    position: relative;
+    padding: 10px 5px;
+}
+
+/* Connecting Line */
+.step::after {
+    content: '';
+    position: absolute;
+    top: 29px; /* Căn giữa với step-number */
+    left: 50%;
+    width: 100%;
+    height: 3px;
+    background-color: var(--light-gray);
+    z-index: 1;
+    transition: background-color 0.4s ease;
+}
+
+.step:last-child::after {
+    display: none;
+}
+
+.step-number {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--light-gray);
+    border: 3px solid var(--light-gray);
+    color: var(--dark-gray);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    margin-bottom: 8px;
+    position: relative;
+    z-index: 2;
+    transition: background-color 0.4s ease, border-color 0.4s ease;
+}
+
+.step-label {
+    font-weight: 500;
+    color: var(--medium-gray);
+    transition: color 0.4s ease;
+}
+
+/* Step States */
+.step.active .step-number {
+    border-color: var(--primary-color);
+    background-color: white;
+    color: var(--primary-color);
+}
+
+.step.active .step-label {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.step.completed .step-number {
+    background-color: var(--success-color);
+    border-color: var(--success-color);
+    color: white;
+}
+
+.step.completed .step-label {
+    color: var(--dark-gray);
+}
+
+.step.completed::after {
+    background-color: var(--success-color);
+}
+
+
+.step-content {
+    display: none;
+    animation: fadeIn 0.5s;
+}
+
+.step-content.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Form & Input Groups --- */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.form-group small {
+    display: block;
+    margin-top: 5px;
+    font-size: 13px;
+    color: var(--medium-gray);
+}
+
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+/* --- File Upload Area (Step 2) --- */
+.file-upload-area {
+    border: 2px dashed var(--light-gray);
+    border-radius: var(--border-radius);
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.file-upload-area:hover {
+    border-color: var(--primary-color);
+    background: #f7fafc;
+}
+
+.file-upload-area.dragover {
+    border-color: var(--success-color);
+    border-style: solid;
+    background: #f0fff4;
+}
+
+.file-upload-area i {
+    font-size: 48px;
+    color: var(--light-gray);
+    margin-bottom: 15px;
+}
+
+.candidate-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--light-gray);
+    border-radius: var(--border-radius);
+    padding: 10px;
+}
+
+.candidate-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background: white;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* --- Preview Section (Step 4) --- */
+.session-preview {
+    background: #f8fafc;
+    padding: 24px;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--light-gray);
+}
+
+.preview-section {
+    margin-bottom: 20px;
+}
+.preview-section:last-child {
+    margin-bottom: 0;
+}
+
+.preview-label {
+    font-weight: 600;
+    color: var(--dark-gray);
+    margin-bottom: 8px;
+    display: block;
+}
+
+.preview-value {
+    color: var(--text-color);
+    line-height: 1.8;
+}
+
+/* --- Existing Sessions List --- */
+.session-card {
+    border: 1px solid var(--light-gray);
+    border-left: 5px solid var(--medium-gray);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    margin-bottom: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.session-card:hover {
+    box-shadow: var(--box-shadow);
+    transform: translateY(-3px);
+    border-left-color: var(--primary-color);
+}
+
+.badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.badge-active {
+    background: #c6f6d5;
+    color: #22543d;
+}
+
+.badge-completed {
+    background: #e2e8f0;
+    color: #2d3748;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--light-gray);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    transition: width 0.4s ease-in-out;
+}
+
+/* --- Navigation Buttons --- */
+.btn-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid var(--light-gray);
+}
+
+#nextBtn {
+    margin-left: auto; /* Đẩy nút Next và Create sang phải */
+}
+
+
+/* --- Responsive Media Queries --- */
+@media (max-width: 768px) {
+    .step-label {
+        display: none; /* Ẩn chữ, chỉ hiển thị số trên mobile */
+    }
+
+    .config-grid {
+        grid-template-columns: 1fr; /* 1 cột trên mobile */
+    }
+    
+    .btn-group {
+        flex-direction: column;
+    }
+    
+    #nextBtn, #createBtn {
+        margin-left: 0;
+        order: -1; /* Đưa nút Tiếp theo/Tạo lên trên */
+    }
+}

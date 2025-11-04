@@ -1,0 +1,17 @@
+flask
+pymongo
+gTTS
+
+langchain
+langchain-community
+langchain-google-genai
+langchain-huggingface
+
+faiss-cpu
+pypdf
+pdfplumber
+nltk
+sentence-transformers
+gunicorn
+
+

@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý buổi phỏng vấn</title>
+    <link rel="stylesheet" href="{{ base_path }}{{ url_for('static', filename='styles.css') }}">
+    <!-- File CSS dành riêng cho trang này -->
+    <link rel="stylesheet" href="{{ base_path }}{{ url_for('static', filename='session_wizard.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .session-wizard { max-width: 1200px; margin: 0 auto; }
+        .step-indicator { display: flex; justify-content: space-between; margin-bottom: 30px; }
+        .step { flex: 1; text-align: center; position: relative; padding: 10px; }
+        .step::after { content: ''; position: absolute; top: 20px; left: 50%; width: 100%; height: 2px; background: #e2e8f0; z-index: -1; }
+        .step:last-child::after { display: none; }
+        .step.active .step-number { background: #4299e1; color: white; }
+        .step.completed .step-number { background: #48bb78; color: white; }
+        .step-number { width: 40px; height: 40px; border-radius: 50%; background: #e2e8f0; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; margin-bottom: 5px; }
+        .step-content { display: none; }
+        .step-content.active { display: block; }
+        .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .file-upload-area { border: 2px dashed #cbd5e0; border-radius: 8px; padding: 40px; text-align: center; cursor: pointer; transition: all 0.3s; }
+        .file-upload-area:hover { border-color: #4299e1; background: #f7fafc; }
+        .file-upload-area.dragover { border-color: #48bb78; background: #f0fff4; }
+        .candidate-list { max-height: 400px; overflow-y: auto; }
+        .candidate-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 8px; }
+        .session-preview { background: #f7fafc; padding: 20px; border-radius: 8px; }
+        .preview-section { margin-bottom: 20px; }
+        .preview-label { font-weight: 600; color: #2d3748; margin-bottom: 8px; }
+        .preview-value { color: #4a5568; }
+        .progress-bar { width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #4299e1, #48bb78); transition: width 0.3s; }
+        .session-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 15px; cursor: pointer; transition: all 0.3s; }
+        .session-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); transform: translateY(-2px); }
+        .session-card.selected { border-color: #4299e1; background: #ebf8ff; }
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+        .badge-active { background: #c6f6d5; color: #22543d; }
+        .badge-completed { background: #e2e8f0; color: #2d3748; }
+        .btn-group { display: flex; gap: 10px; margin-top: 20px; }
+    </style>
+    <script>
+        let currentStep = 1;
+        let sessionData = {
+            config: {},
+            candidates: [],
+            vectorstore_id: null,
+            topic: '',
+            outline: []
+        };
+        let existingSessions = [];
+        const basePath = window.location.pathname.startsWith('/iview1') ? '/iview1' : '';
+
+
+        // Step navigation
+        function goToStep(step) {
+            document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
+
+            document.getElementById(`step${step}`).classList.add('active');
+            document.querySelector(`.step:nth-child(${step})`).classList.add('active');
+
+            // Mark previous steps as completed
+            for (let i = 1; i < step; i++) {
+                document.querySelector(`.step:nth-child(${i})`).classList.add('completed');
+            }
+
+            currentStep = step;
+            updateNavigationButtons();
+        }
+
+        function nextStep() {
+            if (validateStep(currentStep)) {
+                goToStep(currentStep + 1);
+            }
+        }
+
+        function prevStep() {
+            goToStep(currentStep - 1);
+        }
+
+        function validateStep(step) {
+            switch(step) {
+                case 1:
+                    return validateConfig();
+                case 2:
+                    return validateCandidates();
+                case 3:
+                    return validateKnowledge();
+                case 4:
+                    return true;
+                default:
+                    return true;
+            }
+        }
+
+        function updateNavigationButtons() {
+            document.getElementById('prevBtn').style.display = currentStep === 1 ? 'none' : 'inline-block';
+            document.getElementById('nextBtn').style.display = currentStep === 4 ? 'none' : 'inline-block';
+            document.getElementById('createBtn').style.display = currentStep === 4 ? 'inline-block' : 'none';
+        }
+
+        // Step 1: Config
+        function validateConfig() {
+            const config = {
+                threshold_high: parseFloat(document.getElementById('threshold_high').value),
+                threshold_low: parseFloat(document.getElementById('threshold_low').value),
+                max_attempts_per_level: parseInt(document.getElementById('max_attempts_per_level').value),
+                max_total_questions: parseInt(document.getElementById('max_total_questions').value),
+                max_upper_level: parseInt(document.getElementById('max_upper_level').value),
+                llm_temperature: parseFloat(document.getElementById('llm_temperature').value),
+                max_memory_turns: parseInt(document.getElementById('max_memory_turns').value)
+            };
+
+            if (config.threshold_high <= config.threshold_low) {
+                alert('Ngưỡng cao phải lớn hơn ngưỡng thấp!');
+                return false;
+            }
+
+            sessionData.config = config;
+            return true;
+        }
+
+        function loadDefaultConfig() {
+            document.getElementById('threshold_high').value = 7.0;
+            document.getElementById('threshold_low').value = 4.0;
+            document.getElementById('max_attempts_per_level').value = 2;
+            document.getElementById('max_total_questions').value = 8;
+            document.getElementById('max_upper_level').value = 2;
+            document.getElementById('llm_temperature').value = 0.5;
+            document.getElementById('max_memory_turns').value = 6;
+        }
+
+        // Step 2: Candidates
+        function setupFileUpload() {
+            const dropArea = document.getElementById('fileUploadArea');
+            const fileInput = document.getElementById('csvFileInput');
+
+            dropArea.addEventListener('click', () => fileInput.click());
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => dropArea.classList.add('dragover'));
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, () => dropArea.classList.remove('dragover'));
+            });
+
+            dropArea.addEventListener('drop', handleDrop);
+            fileInput.addEventListener('change', handleFileSelect);
+        }
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            handleFiles(files);
+        }
+
+        function handleFiles(files) {
+            if (files.length === 0) return;
+            const file = files[0];
+
+            if (!file.name.endsWith('.csv')) {
+                alert('Chỉ chấp nhận file CSV!');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                parseCSV(e.target.result);
+            };
+            reader.readAsText(file);
+        }
+
+        function parseCSV(csvText) {
+            const lines = csvText.split('\n').filter(line => line.trim());
+            const candidates = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (line) {
+                    const match = line.match(/^([^,]+),([^,]+)/);
+                    if (match) {
+                        candidates.push({
+                            name: match[1].trim(),
+                            class: match[2].trim(),
+                            status: 'pending'
+                        });
+                    }
+                }
+            }
+
+            if (candidates.length === 0) {
+                alert('Không tìm thấy thí sinh hợp lệ trong file CSV!');
+                return;
+            }
+
+            sessionData.candidates = candidates;
+            displayCandidates();
+        }
+
+        function displayCandidates() {
+            const container = document.getElementById('candidateList');
+            container.innerHTML = sessionData.candidates.map((c, i) => `
+                <div class="candidate-item">
+                    <div>
+                        <strong>${c.name}</strong> - ${c.class}
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="removeCandidate(${i})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `).join('');
+
+            document.getElementById('candidateCount').textContent =
+                `Đã tải ${sessionData.candidates.length} thí sinh`;
+        }
+
+        function removeCandidate(index) {
+            sessionData.candidates.splice(index, 1);
+            displayCandidates();
+        }
+
+        function validateCandidates() {
+            if (sessionData.candidates.length === 0) {
+                alert('Vui lòng tải lên danh sách thí sinh!');
+                return false;
+            }
+            return true;
+        }
+
+        // Step 3: Knowledge Base
+        // interview_session.html - Sửa hàm loadVectorstores()
+
+        async function loadVectorstores() {
+            try {
+                const response = await fetch(`${basePath}/interview_batch/vectorstores`);
+
+                // ✅ THÊM: Kiểm tra unauthorized
+                if (response.status === 401) {
+                    const data = await response.json();
+                    alert('Vui lòng đăng nhập để xem danh sách vectorstores');
+                    window.location.href = data.redirect || `${basePath}/login`;
+                    return;
+                }
+
+                const data = await response.json();
+
+                const select = document.getElementById('vectorstoreSelect');
+                select.innerHTML = '<option value="">-- Chọn knowledge base --</option>';
+
+                if (data.success && data.vectorstores.length > 0) {
+                    data.vectorstores.forEach(vs => {
+                        const option = document.createElement('option');
+                        option.value = vs.id;
+                        option.textContent = `${vs.pdf_file} (${vs.num_chunks} chunks)`;
+                        option.dataset.topic = vs.topic;
+                        select.appendChild(option);
+                    });
+                } else if (data.success && data.vectorstores.length === 0) {
+                    // ✅ THÊM: Hiển thị thông báo nếu chưa có vectorstore
+                    select.innerHTML = '<option value="">Bạn chưa có vectorstore nào. Hãy tạo trước!</option>';
+                }
+            } catch (error) {
+                console.error('Error loading vectorstores:', error);
+                alert('Lỗi tải knowledge base!');
+            }
+        }
+
+
+        function onVectorstoreChange() {
+            const select = document.getElementById('vectorstoreSelect');
+            const selectedOption = select.options[select.selectedIndex];
+
+            // ✅ FIX: Cập nhật cả biến global và sessionData
+            selectedVectorstoreId = select.value;
+            sessionData.vectorstore_id = select.value;
+            sessionData.topic = document.getElementById('topicInput').value;
+
+            // Get outline
+            const outlineText = document.getElementById('outlineInput').value.trim();
+            sessionData.outline = outlineText ? outlineText.split(',').map(s => s.trim()) : [];
+
+            console.log('✅ Selected vectorstore:', selectedVectorstoreId); // Debug log
+        }
+
+        function validateKnowledge() {
+            // ✅ FIX: Update data trước khi validate
+            onVectorstoreChange();
+
+            if (!sessionData.vectorstore_id) {
+                alert('Vui lòng chọn knowledge base!');
+                return false;
+            }
+            if (!sessionData.topic) {
+                alert('Vui lòng nhập chủ đề phỏng vấn!');
+                return false;
+            }
+
+            return true;
+        }
+
+        // Step 4: Preview and Create
+        function updatePreview() {
+            document.getElementById('previewConfig').innerHTML = `
+                <div>Threshold High: ${sessionData.config.threshold_high}</div>
+                <div>Threshold Low: ${sessionData.config.threshold_low}</div>
+                <div>Max Questions: ${sessionData.config.max_total_questions}</div>
+                <div>Temperature: ${sessionData.config.llm_temperature}</div>
+            `;
+
+            document.getElementById('previewCandidates').textContent =
+                `${sessionData.candidates.length} thí sinh`;
+
+            document.getElementById('previewTopic').textContent = sessionData.topic;
+
+            if (sessionData.outline.length > 0) {
+                document.getElementById('previewOutline').textContent =
+                    sessionData.outline.join(', ');
+            } else {
+                document.getElementById('previewOutline').textContent = 'Không có';
+            }
+        }
+
+        // interview_session.html - Sửa hàm createInterviewSession()
+
+        async function createInterviewSession() {
+            updatePreview();
+
+            const sessionName = document.getElementById('sessionName').value.trim();
+            if (!sessionName) {
+                alert('Vui lòng nhập tên buổi phỏng vấn!');
+                return;
+            }
+
+            // Validate
+            if (!sessionData.vectorstore_id) {
+                alert('❌ Lỗi: Chưa chọn Knowledge Base! Vui lòng quay lại Step 3.');
+                goToStep(3);
+                return;
+            }
+
+            if (!sessionData.topic) {
+                alert('❌ Lỗi: Chưa nhập chủ đề! Vui lòng quay lại Step 3.');
+                goToStep(3);
+                return;
+            }
+
+            if (sessionData.candidates.length === 0) {
+                alert('❌ Lỗi: Chưa có thí sinh! Vui lòng quay lại Step 2.');
+                goToStep(2);
+                return;
+            }
+
+            showLoading(true, 'Đang tạo buổi phỏng vấn...');
+
+            try {
+                const response = await fetch(`${basePath}/interview_batch/create`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        session_name: sessionName,
+                        config: sessionData.config,
+                        candidates: sessionData.candidates,
+                        vectorstore_id: sessionData.vectorstore_id,
+                        topic: sessionData.topic,
+                        outline: sessionData.outline
+                    })
+                });
+
+                // ✅ THÊM: Xử lý các mã lỗi
+                if (response.status === 401) {
+                    alert('Vui lòng đăng nhập lại');
+                    window.location.href = `${basePath}/login`;
+                    return;
+                }
+
+                if (response.status === 403) {
+                    alert('Bạn không có quyền sử dụng vectorstore này!');
+                    return;
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('✅ Tạo buổi phỏng vấn thành công!');
+                    window.location.href = `${basePath}/interview_batch`;
+                } else {
+                    alert('❌ Lỗi: ' + result.error);
+                }
+            } catch (error) {
+                console.error('❌ Error creating session:', error);
+                alert('❌ Lỗi tạo buổi phỏng vấn: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // interview_session.html - Sửa hàm loadExistingSessions()
+
+        async function loadExistingSessions() {
+            try {
+                const response = await fetch(`${basePath}/interview_batch/list`);
+
+                // ✅ THÊM: Kiểm tra unauthorized
+                if (response.status === 401) {
+                    const data = await response.json();
+                    window.location.href = data.redirect || `${basePath}/login`;
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    existingSessions = data.sessions;
+                    displayExistingSessions();
+                }
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+            }
+        }
+
+
+        function displayExistingSessions() {
+            const container = document.getElementById('existingSessionsList');
+
+            if (existingSessions.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:#718096;">Chưa có buổi phỏng vấn nào</p>';
+                return;
+            }
+
+            container.innerHTML = existingSessions.map(session => `
+                <div class="session-card" onclick="selectSession('${session._id}')">
+                    <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div>
+                            <h4 style="margin: 0 0 10px 0;">${session.batch_name}</h4>
+                            <div style="color: #718096; font-size: 14px;">
+                                <div><i class="fas fa-book"></i> ${session.topic}</div>
+                                <div><i class="fas fa-users"></i> ${session.candidates.length} thí sinh</div>
+                                <div><i class="fas fa-calendar"></i> ${new Date(session.created_at).toLocaleString('vi-VN')}</div>
+                            </div>
+                        </div>
+                        <span class="badge ${session.status === 'active' ? 'badge-active' : 'badge-completed'}">
+                            ${session.status === 'active' ? 'Đang hoạt động' : 'Đã hoàn thành'}
+                        </span>
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${(session.completed_count / session.candidates.length) * 100}%"></div>
+                        </div>
+                        <div style="font-size: 12px; color: #718096; margin-top: 5px;">
+                            ${session.completed_count}/${session.candidates.length} đã hoàn thành
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function selectSession(sessionId) {
+            window.location.href = `${basePath}/interview_batch/detail/${sessionId}`
+        }
+
+        // Utilities
+        function showLoading(show, message = 'Đang xử lý...') {
+            const overlay = document.getElementById('loadingOverlay');
+            const text = document.getElementById('loadingText');
+            overlay.style.display = show ? 'flex' : 'none';
+            if (text) text.textContent = message;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDefaultConfig();
+            setupFileUpload();
+            loadVectorstores();
+            loadExistingSessions();
+            updateNavigationButtons();
+
+            // ✅ FIX: Thêm event listener cho vectorstore select
+            document.getElementById('vectorstoreSelect').addEventListener('change', function(e) {
+                selectedVectorstoreId = e.target.value;
+                sessionData.vectorstore_id = e.target.value;
+                console.log('✅ Vectorstore changed:', selectedVectorstoreId);
+            });
+
+            // ✅ FIX: Thêm event listener cho topic input
+            document.getElementById('topicInput').addEventListener('input', function(e) {
+                sessionData.topic = e.target.value;
+            });
+
+            // ✅ FIX: Thêm event listener cho outline input
+            document.getElementById('outlineInput').addEventListener('input', function(e) {
+                const outlineText = e.target.value.trim();
+                sessionData.outline = outlineText ? outlineText.split(',').map(s => s.trim()) : [];
+            });
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-calendar-check"></i>
+                    <span>Quản lý buổi phỏng vấn</span>
+                </div>
+                <div class="header-actions">
+                    <a href="{{ base_path }}/" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-home"></i> Trang chủ
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="session-wizard">
+                <!-- Existing Sessions -->
+                <div class="card" style="margin-bottom: 30px;">
+                    <div class="card-header">
+                        <h2><i class="fas fa-list"></i> Buổi phỏng vấn đã tạo</h2>
+                    </div>
+                    <div class="card-body">
+                        <div id="existingSessionsList"></div>
+                    </div>
+                </div>
+
+                <!-- Create New Session -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-plus-circle"></i> Tạo buổi phỏng vấn mới</h2>
+                    </div>
+                    <div class="card-body">
+                        <!-- Step Indicator -->
+                        <div class="step-indicator">
+                            <div class="step active">
+                                <div class="step-number">1</div>
+                                <div>Cấu hình</div>
+                            </div>
+                            <div class="step">
+                                <div class="step-number">2</div>
+                                <div>Thí sinh</div>
+                            </div>
+                            <div class="step">
+                                <div class="step-number">3</div>
+                                <div>Knowledge Base</div>
+                            </div>
+                            <div class="step">
+                                <div class="step-number">4</div>
+                                <div>Xác nhận</div>
+                            </div>
+                        </div>
+
+                        <!-- Step 1: Config -->
+                        <div id="step1" class="step-content active">
+                            <h3>Cấu hình tham số phỏng vấn</h3>
+                            <div class="config-grid">
+                                <div class="form-group">
+                                    <label>Threshold High:</label>
+                                    <input type="number" id="threshold_high" class="form-control" step="0.1" min="0" max="10">
+                                    <small>Điểm để tăng độ khó</small>
+                                </div>
+                                <div class="form-group">
+                                    <label>Threshold Low:</label>
+                                    <input type="number" id="threshold_low" class="form-control" step="0.1" min="0" max="10">
+                                    <small>Điểm để giảm độ khó</small>
+                                </div>
+                                <div class="form-group">
+                                    <label>Max Attempts Per Level:</label>
+                                    <input type="number" id="max_attempts_per_level" class="form-control" min="1">
+                                    <small>Số câu tối đa mỗi mức</small>
+                                </div>
+                                <div class="form-group">
+                                    <label>Max Total Questions:</label>
+                                    <input type="number" id="max_total_questions" class="form-control" min="1">
+                                    <small>Tổng số câu hỏi tối đa</small>
+                                </div>
+                                <div class="form-group">
+                                    <label>Max Upper Level:</label>
+                                    <input type="number" id="max_upper_level" class="form-control" min="1">
+                                    <small>Số lần tăng độ khó tối đa</small>
+                                </div>
+                                <div class="form-group">
+                                    <label>LLM Temperature:</label>
+                                    <input type="number" id="llm_temperature" class="form-control" step="0.1" min="0" max="2">
+                                    <small>Độ sáng tạo của AI (0-2)</small>
+                                </div>
+                                <div class="form-group">
+                                    <label>Max Memory Turns:</label>
+                                    <input type="number" id="max_memory_turns" class="form-control" min="1">
+                                    <small>Số lượt hội thoại ghi nhớ</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Candidates -->
+                        <div id="step2" class="step-content">
+                        <h3>Tải lên danh sách thí sinh</h3>
+                        <p class="description" style="color: #4a5568; margin-bottom: 25px;">
+                            Vui lòng chuẩn bị file **CSV** chứa đầy đủ thông tin của các thí sinh. Dữ liệu sẽ được sử dụng để lọc và tính toán điểm cuối cùng. Đảm bảo file tuân thủ đúng cấu trúc cột yêu cầu như mô tả bên dưới để hệ thống có thể đọc chính xác.
+                        </p>
+
+                        <div id="fileUploadArea" class="file-upload-area">
+                            <i class="fas fa-cloud-upload-alt" style="font-size: 48px; color: #cbd5e0;"></i>
+                            <h4>Kéo thả file CSV hoặc click để chọn</h4>
+                            <p style="color: #718096; font-weight: bold;">
+                                Định dạng bắt buộc: <span style="color: #e53e3e;">Tên,Lớp,Chuyên ngành,Điểm chuyên cần,Điểm 40%</span>
+                            </p>
+                            <div style="font-family: monospace; font-size: 12px; background-color: #f7fafc; padding: 5px; border-radius: 4px; margin-top: 10px;">
+                                Ví dụ: Nguyễn Văn An,QTKD1,Quản trị kinh doanh,8.9,6.7
+                            </div>
+
+                                    <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+                                </div>
+                                <div style="margin-top: 20px;">
+                                    <div id="candidateCount" style="font-weight: 600; margin-bottom: 10px;">Chưa có thí sinh</div>
+                                    <div id="candidateList" class="candidate-list"></div>
+                                </div>
+                            </div>
+
+                        <!-- Step 3: Knowledge Base -->
+                        <div id="step3" class="step-content">
+                            <h3>Chọn Knowledge Base và Chủ đề</h3>
+                            <div class="form-group">
+                                <label>Knowledge Base (Vector Stores):</label>
+                                <select id="vectorstoreSelect" class="form-control">
+                                    <option value="">-- Đang tải... --</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Chủ đề phỏng vấn:</label>
+                                <input type="text" id="topicInput" class="form-control" placeholder="VD: Kiểu dữ liệu trong Java">
+                            </div>
+                            <div class="form-group">
+                                <label for="outlineInput">Outline (tùy chọn):</label>
+                                <input type="text" id="outlineInput" class="form-control" placeholder="VD: Primitive types, Reference types, String">
+                                <small class="form-text text-muted">Nhập nội dung liên quan đến topic  (ngăn cách bởi dấu phẩy) . Hệ thống sẽ sử dụng chúng để tạo nhiều truy vấn (multiple query) cho RAG giúp **truy xuất kiến thức toàn diện hơn**.</small>
+                            </div>
+                        </div>
+
+                        <!-- Step 4: Preview -->
+                        <div id="step4" class="step-content">
+                            <h3>Xác nhận thông tin</h3>
+                            <div class="form-group">
+                                <label>Tên buổi phỏng vấn:</label>
+                                <input type="text" id="sessionName" class="form-control" placeholder="VD: Phỏng vấn Java - Lớp CNTT1">
+                            </div>
+                            <div class="session-preview">
+                                <div class="preview-section">
+                                    <div class="preview-label">Cấu hình:</div>
+                                    <div id="previewConfig" class="preview-value"></div>
+                                </div>
+                                <div class="preview-section">
+                                    <div class="preview-label">Thí sinh:</div>
+                                    <div id="previewCandidates" class="preview-value"></div>
+                                </div>
+                                <div class="preview-section">
+                                    <div class="preview-label">Chủ đề:</div>
+                                    <div id="previewTopic" class="preview-value"></div>
+                                </div>
+                                <div class="preview-section">
+                                    <div class="preview-label">Outline:</div>
+                                    <div id="previewOutline" class="preview-value"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Navigation Buttons -->
+                        <div class="btn-group">
+                            <button id="prevBtn" class="btn btn-secondary" onclick="prevStep()">
+                                <i class="fas fa-arrow-left"></i> Quay lại
+                            </button>
+                            <button id="nextBtn" class="btn btn-primary" onclick="nextStep()">
+                                Tiếp theo <i class="fas fa-arrow-right"></i>
+                            </button>
+                            <button id="createBtn" class="btn btn-success" onclick="createInterviewSession()" style="display: none;">
+                                <i class="fas fa-check"></i> Tạo buổi phỏng vấn
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <div id="loadingText" class="loading-text">Đang xử lý...</div>
+    </div>
+</body>
+</html>
