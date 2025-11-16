@@ -19,7 +19,7 @@ db = client[Config.DB_NAME]
 # Collections
 db_batches = db["interview_batches"]
 db_records = db["interview_records"]
-db_results = db["interview_results"]
+# db_results = db["interview_results"]
 db_vectorstores = db["vectorstores"]
 
 # ===================================================================

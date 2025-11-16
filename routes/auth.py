@@ -63,6 +63,8 @@ def get_base_path():
     return '/iview1' if 'fit.neu.edu.vn' in request.host else ''
 
 
+# auth.py
+
 def login_user_session(user):
     """Tạo session cho user sau khi login thành công"""
     session['user'] = {
@@ -70,7 +72,10 @@ def login_user_session(user):
         'email': user['email'],
         'name': user['name'],
         'avatar_url': user.get('avatar_url'),
-        'login_method': user['login_method']
+        'login_method': user['login_method'],
+
+        # THÊM DÒNG NÀY
+        'role': user.get('role', 'user')  # Lấy role từ DB, nếu lỡ không có thì mặc định là 'user'
     }
     update_last_login(user['id'])
 

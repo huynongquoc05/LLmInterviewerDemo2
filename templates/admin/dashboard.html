@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block head %}
+    <!-- Tách CSS ra file riêng -->
+    <link rel="stylesheet" href="{{ base_path }}{{ url_for('static', filename='admin_dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <h1><i class="fas fa-shield-alt"></i> Admin Dashboard</h1>
+
+    <!-- Hiển thị Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class=flashes>
+        {% for category, message in messages %}
+          <li class="{{ category }}">{{ message }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+</div>
+
+<!-- Cấu trúc Tabs -->
+<div class="tabs">
+    <button class="tab active" data-tab="stats" onclick="switchTab('stats')">
+        <i class="fas fa-chart-bar"></i> Thống kê
+    </button>
+    <button class="tab" data-tab="vectorstores" onclick="switchTab('vectorstores')">
+        <i class="fas fa-database"></i> Quản lý Vectorstores
+    </button>
+    <button class="tab" data-tab="batches" onclick="switchTab('batches')">
+        <i class="fas fa-users"></i> Quản lý Batches
+    </button>
+</div>
+
+<div class="admin-container">
+    <!-- Tab 1: Thống kê -->
+    <div id="stats-tab" class="tab-content active">
+        <div class="stat-grid">
+            <div class="stat-card">
+                <h3>Thống kê Vectorstores</h3>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>User Name</th>
+                                <th>Tổng tài liệu</th>
+                                <th>Tổng Chunks</th>
+                                <th>Tổng dung lượng (MB)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stat in vectorstore_stats %}
+                            <tr>
+                                <td>{{ stat.user_name }} (ID: {{ stat.user_id }})</td>
+                                <td>{{ stat.total_stores }}</td>
+                                <td>{{ stat.total_chunks }}</td>
+                                <td>{{ stat.total_size_mb }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <h3>Thống kê Batches</h3>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>User Name</th>
+                                <th>Tổng Batches</th>
+                                <th>Tổng Thí sinh</th>
+                                <th>Đã hoàn thành</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stat in batch_stats %}
+                            <tr>
+                                <td>{{ stat.user_name }} (ID: {{ stat.user_id }})</td>
+                                <td>{{ stat.total_batches }}</td>
+                                <td>{{ stat.total_candidates }}</td>
+                                <td>{{ stat.total_completed }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 2: Danh sách Vectorstores -->
+    <div id="vectorstores-tab" class="tab-content">
+        <div class="list-card">
+            <h2><i class="fas fa-database"></i> Quản lý toàn bộ Vectorstores</h2>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tên file PDF</th>
+                            <th>Chủ sở hữu</th>
+                            <th>Ngày tạo</th>
+                            <th>Chunks</th>
+                            <th>Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for vs in all_vectorstores %}
+                        <tr>
+                            <td>
+                                <a href="{{ base_path }}/embedding/detail/{{ vs._id }}" title="Xem chi tiết">
+                                    {{ vs.pdf_file }}
+                                </a>
+                            </td>
+                            <td>{{ vs.owner_name }}</td>
+                            <!-- Lỗi strftime đã được sửa vì all_vectorstores giờ là list gốc -->
+                            <td>{{ vs.created_at.strftime('%Y-%m-%d %H:%M') if vs.created_at else 'N/A' }}</td>
+                            <td>{{ vs.num_chunks }}</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('admin.delete_vectorstore_admin', vectorstore_id=vs._id) }}" onsubmit="return confirm('Bạn có chắc chắn muốn xóa tài liệu này? Mọi dữ liệu liên quan sẽ bị mất vĩnh viễn.');" style="display: inline;">
+                                    <button type="submit" class="btn-delete"><i class="fas fa-trash"></i> Xóa</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 3: Danh sách Batches -->
+    <div id="batches-tab" class="tab-content">
+        <div class="list-card">
+            <h2><i class="fas fa-users"></i> Quản lý toàn bộ Interview Batches</h2>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tên Batch</th>
+                            <th>Chủ sở hữu</th>
+                            <th>Chủ đề</th>
+                            <th>Thí sinh</th>
+                            <th>Trạng thái</th>
+                            <th>Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for batch in all_batches %}
+                        <tr>
+                            <td>{{ batch.batch_name }}</td>
+                            <td>{{ batch.owner_name }}</td>
+                            <td>{{ batch.topic }}</td>
+                            <td>{{ batch.completed_count }} / {{ batch.total_count }}</td>
+                            <td>{{ batch.status }}</td>
+                            <td>
+                                <!--
+                                  THAY ĐỔI LỚN:
+                                  Bỏ data-batch-info
+                                  Truyền batch._id (dưới dạng string) vào hàm JS
+                                -->
+                                <button class="btn-view"
+                                        onclick="showBatchInfoModal('{{ batch._id }}')">
+                                    <i class="fas fa-eye"></i> Xem
+                                </button>
+
+                                <form method="POST" action="{{ url_for('admin.delete_batch_admin', batch_id=batch._id) }}" onsubmit="return confirm('Bạn có chắc chắn muốn xóa batch này? Mọi bản ghi phỏng vấn liên quan sẽ bị mất vĩnh viễn.');" style="display: inline;">
+                                    <button type="submit" class="btn-delete"><i class="fas fa-trash"></i> Xóa</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal để hiển thị thông tin Batch -->
+<div id="batchInfoModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalBatchName">Chi tiết Batch</h2>
+            <span class="modal-close" onclick="closeBatchInfoModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <!-- Nội dung sẽ được JS chèn vào đây -->
+            <pre id="modalBatchContent">Đang tải...</pre>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block scripts %}
+<script>
+    // --- 1. Logic chuyển Tab ---
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+        document.getElementById(`${tabName}-tab`).classList.add('active');
+    }
+
+    // --- 2. Logic Modal (ĐÃ VIẾT LẠI HOÀN TOÀN) ---
+    const modal = document.getElementById('batchInfoModal');
+    const modalName = document.getElementById('modalBatchName');
+    const modalContent = document.getElementById('modalBatchContent');
+
+    /**
+     * Hàm mới: Lấy thông tin batch từ API và hiển thị
+     */
+    async function showBatchInfoModal(batchId) {
+        // 1. Hiển thị modal với trạng thái "Đang tải"
+        modalName.textContent = 'Đang tải...';
+        modalContent.textContent = 'Vui lòng chờ...';
+        modal.classList.add('active');
+
+        try {
+            // 2. Gọi API mới
+            const response = await fetch(`{{ base_path }}/admin/batch_info/${batchId}`);
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Lỗi server: ${response.statusText}`);
+            }
+
+            // 3. Lấy dữ liệu JSON (đã được backend "làm sạch")
+            const batchData = await response.json();
+
+            if (batchData.error) {
+                throw new Error(batchData.error);
+            }
+
+            // 4. Cập nhật nội dung Modal
+            modalName.textContent = batchData.batch_name || 'Chi tiết Batch';
+
+            // 5. Format JSON để hiển thị đẹp
+            // Backend đã dùng json_util nên $oid và $date đã thành string
+            const formattedJson = JSON.stringify(batchData, (key, value) => {
+                 // Chuyển đổi $date (nếu có) sang định dạng dễ đọc
+                 if (key === '$date') {
+                     return new Date(value).toLocaleString('vi-VN');
+                 }
+                 // Chuyển đổi $oid (nếu có)
+                 if (key === '$oid') {
+                     return `ObjectId(${value})`;
+                 }
+                 return value;
+            }, 2); // 2 là số cách thụt lề
+
+            modalContent.textContent = formattedJson;
+
+        } catch (e) {
+            console.error("Lỗi khi fetch dữ liệu batch:", e);
+            modalName.textContent = 'Lỗi';
+            modalContent.textContent = `Lỗi khi tải dữ liệu: ${e.message}. Vui lòng kiểm tra console.`;
+        }
+    }
+
+    function closeBatchInfoModal() {
+        modal.classList.remove('active');
+    }
+
+    // Đóng modal khi bấm ra ngoài
+    window.onclick = function(event) {
+        if (event.target == modal) {
+            closeBatchInfoModal();
+        }
+    }
+</script>
+{% endblock %}

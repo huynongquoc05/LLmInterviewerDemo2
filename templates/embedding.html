@@ -368,7 +368,13 @@
                     return `
                         <div class="vectorstore-item ${vs.is_public ? 'public' : 'private'}">
                             <div class="vectorstore-info">
-                                <h4><i class="fas fa-file-alt"></i> ${vs.pdf_file} ${tag}</h4>
+                                <h4>
+                                    <i class="fas fa-file-alt"></i>
+                                    <a href="${basePath}/embedding/detail/${vs._id}" style="text-decoration:none;">
+                                        ${vs.pdf_file}
+                                    </a>
+                                    ${tag}
+                                </h4>
                                 <div class="vectorstore-meta">
                                     <span><i class="fas fa-brain"></i> ${vs.model_info?.name || "Không rõ"}</span>
                                     ${pagesInfo}

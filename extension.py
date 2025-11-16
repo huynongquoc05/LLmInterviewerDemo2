@@ -15,7 +15,7 @@ def summarize_knowledge_with_llm(knowledge_text: str, topic: str, outline: list[
     outline_str = "\n".join(f"- {item}" for item in outline or [])
 
     prompt = f"""
-    Bạn là chuyên gia đào tạo Java, hãy giúp đánh giá và tóm tắt tài liệu phỏng vấn sau.
+    Bạn là chuyên gia trong lĩnh vực liên quan đến {topic}, hãy giúp đánh giá và tóm tắt tài liệu phỏng vấn sau.
     
     CHỦ ĐỀ: {topic}
     OUTLINE (mục tiêu kiến thức): 

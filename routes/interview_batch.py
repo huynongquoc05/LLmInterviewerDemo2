@@ -13,7 +13,7 @@ from langchain_community.vectorstores import FAISS
 
 from BuildVectorStores import list_vectorstores
 from config import Config
-from extensions import db_batches, db_records, db_results, db_vectorstores, embedding_manager, llm_service
+from extensions import db_batches, db_records, db_vectorstores, embedding_manager, llm_service
 from extension import build_cv_vectorstore_from_candidates, summarize_knowledge_with_llm, KnowledgeBuilder
 
 batch_bp = Blueprint('batch', __name__)
@@ -283,56 +283,98 @@ def update_candidate_status():
 
 @batch_bp.route("/export/<batch_id>", methods=["GET"])
 def export_batch_results(batch_id):
-    """Export kết quả batch ra CSV"""
+    """
+    Export kết quả batch ra CSV
+    (ĐÃ VIẾT LẠI: Đọc trực tiếp từ db_records, bỏ qua db_results)
+    """
 
-    # ✅ THÊM: Kiểm tra auth
+    # 1. Xác thực và kiểm tra quyền sở hữu (Giữ nguyên)
     auth_error = require_auth()
     if auth_error:
         return auth_error
 
     user_id = get_current_user_id()
 
-    batch = db_batches.find_one({"_id": ObjectId(batch_id)})
+    try:
+        batch = db_batches.find_one({"_id": ObjectId(batch_id)})
+    except errors.InvalidId:
+        return jsonify({"error": "Batch ID không hợp lệ"}), 400
+
     if not batch:
         return jsonify({"error": "Batch not found"}), 404
 
-    # ✅ THÊM: Kiểm tra ownership
     if batch.get("user_id") != user_id:
         return jsonify({"error": "Permission denied"}), 403
 
-    results = []
-    for candidate in batch["candidates"]:
-        full_name = f"{candidate['name']},{candidate['class']}"
-        result = db_results.find_one(
-            {"candidate_info.name": full_name},
-            sort=[("interview_stats.timestamp", DESCENDING)]
-        )
-        if result:
-            results.append(result)
+    # 2. Truy vấn dữ liệu từ db_records (Đã thay đổi)
 
+    # Lấy TẤT CẢ các bản ghi đã hoàn thành thuộc batch này
+    completed_records = list(db_records.find({
+        "batch_id": batch_id,
+        "is_finished": True  # Chỉ lấy các bản ghi đã hoàn thành
+    }))
+
+    if not completed_records:
+        # Nếu chưa ai hoàn thành, trả về file CSV rỗng (chỉ có header)
+        print(f"Không tìm thấy bản ghi nào đã hoàn thành cho batch {batch_id}")
+        # (Tiếp tục chạy để trả về file CSV chỉ có header)
+
+    # 3. Tạo file CSV
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow(['Tên', 'Lớp', 'Điểm cuối cùng', 'Số câu hỏi', 'Trình độ', 'Thời gian', 'Trạng thái'])
 
-    for res in results:
-        name, *cls = res["candidate_info"]["name"].split(",")
-        writer.writerow([
-            name,
-            ",".join(cls),
-            res["interview_stats"].get("final_score", 0),
-            res["interview_stats"].get("total_questions", 0),
-            res["candidate_info"].get("classified_level", ""),
-            res["interview_stats"].get("timestamp", ""),
-            "Hoàn thành"
-        ])
+    # Viết Header
+    writer.writerow([
+        'Tên',
+        'Lớp',
+        'Điểm cuối cùng',
+        'Số câu hỏi',
+        'Trình độ (AI Classify)',
+        'Thời gian bắt đầu',
+        'Trạng thái'
+    ])
 
+    # 4. Lặp qua các bản ghi và ghi vào CSV (Đã thay đổi)
+    for record in completed_records:
+        try:
+            # Xử lý candidate_name (ví dụ: "Nguyễn Minh Anh,Không rõ")
+            full_name_str = record.get("candidate_name", ",")
+            name_parts = full_name_str.split(",")
+            name = name_parts[0]
+            cls = ",".join(name_parts[1:]) if len(name_parts) > 1 else "Không rõ"
+
+            # Lấy thông tin từ cấu trúc db_records
+            final_score = record.get("final_score", 0)
+            total_questions = record.get("total_questions_asked", 0)
+            level = record.get("classified_level", "N/A")
+
+            # Lấy thời gian bắt đầu phỏng vấn
+            timestamp = record.get("created_at", "")
+            if isinstance(timestamp, datetime):
+                timestamp = timestamp.strftime('%Y-%m-%d %H:%M:%S')
+
+            # Ghi dòng vào CSV
+            writer.writerow([
+                name,
+                cls,
+                f"{final_score:.1f}" if final_score is not None else "0.0",
+                total_questions,
+                level,
+                timestamp,
+                "Hoàn thành"
+            ])
+        except Exception as e:
+            print(f"Lỗi khi xử lý record {record.get('_id')}: {e}")
+            # Bỏ qua bản ghi lỗi và tiếp tục
+            continue
+
+    # 5. Trả về file CSV (Giữ nguyên)
     output.seek(0)
     return Response(
         output.getvalue(),
         mimetype="text/csv",
         headers={"Content-Disposition": f"attachment;filename=results_{batch_id}.csv"}
     )
-
 
 @batch_bp.route("/vectorstores", methods=["GET"])
 def get_available_vectorstores():

@@ -26,6 +26,8 @@ def get_db():
         conn.close()
 
 
+# database.py
+
 def init_db():
     """Khởi tạo database và các bảng"""
     with get_db() as conn:
@@ -44,9 +46,14 @@ def init_db():
                 created_at TEXT NOT NULL,
                 last_login TEXT,
                 login_method TEXT NOT NULL,  -- 'password' hoặc 'google'
+
+                -- THÊM DÒNG NÀY --
+                role TEXT NOT NULL DEFAULT 'user', -- Thêm cột role
+
                 CONSTRAINT email_unique UNIQUE (email)
             )
         ''')
+        # ... (phần còn lại của hàm) ...
 
         # Bảng sessions (optional - để tracking sessions)
         cursor.execute('''

@@ -12,7 +12,7 @@ from langchain_community.vectorstores import FAISS
 
 from config import Config
 from extensions import (
-    db_batches, db_records, db_results,
+    db_batches, db_records,
     embedding_manager, interview_processor, context_cache
 )
 from utils import to_mongo_safe, to_json_safe
@@ -289,9 +289,9 @@ def answer():
         record_dict = to_mongo_safe(asdict(updated_record))
         db_records.replace_one({"_id": ObjectId(record_id)}, record_dict)
 
-        # ✅ Lưu kết quả nếu hoàn thành
-        if api_result.get("finished"):
-            db_results.insert_one(api_result["summary"])
+        # # ✅ Lưu kết quả nếu hoàn thành
+        # if api_result.get("finished"):
+        #     db_results.insert_one(api_result["summary"])
 
         # ✅ Sinh audio cho câu hỏi tiếp theo
         if not api_result.get("finished") and "next_question" in api_result:
