@@ -140,9 +140,9 @@ def upload_pdf():
 
 @embedding_bp.route("/list", methods=["GET"])
 def list_vectorstores_route():
-    """Lấy danh sách vectorstores của user hiện tại"""
+    """Lấy danh sách vectorstores của user hiện tại + các vectorstore chung"""
 
-    # ✅ THÊM: Kiểm tra auth
+    # ✅ Kiểm tra xác thực
     auth_error = require_auth()
     if auth_error:
         return auth_error
@@ -150,30 +150,35 @@ def list_vectorstores_route():
     user_id = get_current_user_id()
 
     try:
-        # ✅ SỬA: Chỉ lấy vectorstores của user này
         from pymongo import DESCENDING
 
+        # ✅ Bao gồm:
+        # - vectorstore của user hiện tại
+        # - vectorstore có user_id == None (public)
         vectorstores = list(
-            db_vectorstores.find(
-                {
-                    "$or": [
-                        {"custom.user_id": user_id},  # Cách 1: user_id trong custom
-                        {"user_id": user_id}  # Cách 2: user_id ở top level
-                    ]
-                }
-            ).sort("created_at", DESCENDING)
+            db_vectorstores.find({
+                "$or": [
+                    {"user_id": user_id},
+                    {"custom.user_id": user_id},
+                    {"user_id": None},
+                    {"user_id": {"$exists": False}}  # Phòng khi record cũ chưa có field user_id
+                ]
+            }).sort("created_at", DESCENDING)
         )
 
-        # Convert ObjectId to string
+        # ✅ Chuẩn hóa ObjectId và flag public
         for vs in vectorstores:
             vs["_id"] = str(vs["_id"])
+            vs["is_public"] = vs.get("user_id") is None
 
         return jsonify({
             "success": True,
             "vectorstores": vectorstores,
             "count": len(vectorstores)
         })
+
     except Exception as e:
+        import traceback; traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
 
@@ -244,7 +249,7 @@ def get_vectorstore_info(vectorstore_id):
 def get_vectorstore_chunks_route(vectorstore_id):
     """Lấy các chunks của vectorstore"""
     try:
-        chunks = get_vectorstore_chunks(vectorstore_id, db_name=Config.DB_NAME)
+        chunks = get_vectorstore_chunks(vectorstore_id)
         return jsonify({"success": True, "chunks": chunks})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

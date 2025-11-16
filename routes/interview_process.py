@@ -137,8 +137,6 @@ def start_candidate_interview():
             "candidate_name": full_candidate_name
         })
 
-        # ... (phần còn lại GIỮ NGUYÊN - không thay đổi gì)
-
         # ✅ BƯỚC 2: Nếu đã hoàn thành → Trả về summary
         if existing_record and existing_record.get("is_finished"):
             return jsonify({
@@ -162,14 +160,16 @@ def start_candidate_interview():
                             "question": q["question"],
                             "answer": q["answer"],
                             "score": q["score"],
-                            "analysis": q["analysis"]
+                            "analysis": q["analysis"],
+                            "time_limit": q.get("time_limit", 60),      # ✅ THÊM
+                            "time_spent": q.get("time_spent", 0)        # ✅ THÊM
                         }
                         for idx, q in enumerate(existing_record.get("history", []))
                     ]
                 }
             })
 
-        # ✅ BƯỚC 3-6: GIỮ NGUYÊN HẾT
+        # ✅ BƯỚC 3-6: Wakeup context & tạo record mới
         cv_db, context = wakeup_context(batch_id)
         profile_docs = cv_db.similarity_search(full_candidate_name, k=1)
         if not profile_docs:
@@ -179,7 +179,8 @@ def start_candidate_interview():
         score_match = re.search(r'Điểm 40%[:\s]+([0-9.]+)', profile_text)
         level = classify_level_from_score(float(score_match.group(1))) if score_match else Level.TRUNG_BINH
 
-        new_record, first_question = interview_processor.start_new_record(
+        # ✅ ĐỔI: Nhận Dict thay vì str
+        new_record, first_q_data = interview_processor.start_new_record(
             batch_id, full_candidate_name, profile_text, level, context
         )
 
@@ -201,13 +202,16 @@ def start_candidate_interview():
             record_id = str(result.inserted_id)
             print(f"🆕 Tạo record mới cho {full_candidate_name}")
 
-        audio_id = create_audio_from_text(first_question)
+        # ✅ Tạo audio
+        audio_id = create_audio_from_text(first_q_data["question"])
 
         return jsonify({
             "success": True,
             "already_completed": False,
             "record_id": record_id,
-            "question": first_question,
+            "question": first_q_data["question"],        # ✅
+            "difficulty": first_q_data["difficulty"],    # ✅
+            "time_limit": first_q_data["time_limit"],    # ✅ THÊM
             "level": level.value,
             "phase": "warmup",
             "audio_id": audio_id,
@@ -219,7 +223,6 @@ def start_candidate_interview():
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
-
 # ===================================================================
 # Answer Question
 # ===================================================================
@@ -240,6 +243,7 @@ def answer():
 
         record_id = data["record_id"]
         answer_text = data["answer"]
+        time_spent = data.get("time_spent", 0)  # ✅ THÊM: thời gian thí sinh dùng (giây)
 
         # ✅ Load record từ MongoDB
         record_data = db_records.find_one({"_id": ObjectId(record_id)})
@@ -256,7 +260,7 @@ def answer():
                 "error": "Permission denied"
             }), 403
 
-        # ✅ Deserialize (GIỮ NGUYÊN)
+        # ✅ Deserialize
         record_data.pop('_id', None)
         try:
             record_data['history'] = [
@@ -268,6 +272,7 @@ def answer():
             record_data['current_phase'] = InterviewPhase(record_data['current_phase'])
         except Exception as e:
             return jsonify({"error": f"Lỗi dữ liệu bản ghi: {e}"}), 500
+
         record_data.pop("reset_count", None)
         record_data.pop("last_reset_at", None)
         record = InterviewRecord(**record_data)
@@ -275,9 +280,9 @@ def answer():
         # ✅ Wake up context
         _, context = wakeup_context(record.batch_id)
 
-        # ✅ Process answer (business logic)
+        # ✅ Process answer (truyền time_spent vào)
         updated_record, api_result = interview_processor.process_answer(
-            record, context, answer_text
+            record, context, answer_text, time_spent  # ✅ THÊM time_spent
         )
 
         # ✅ Update MongoDB

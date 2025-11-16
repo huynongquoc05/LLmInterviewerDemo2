@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vector Store Management</title>
-    <link rel="stylesheet" href="{{ base_path }}{{ url_for('static', filename='styles.css') }}">
+    <title>Quản lý tài liệu</title>
+    <link rel="stylesheet" href="{{ base_path }}{{ url_for('static', filename='embedding.css') }}">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -95,6 +95,7 @@
             gap: 1rem;
             font-size: 0.875rem;
             color: #718096;
+            flex-wrap: wrap; /* Cho phép xuống dòng trên màn hình nhỏ */
         }
 
         .vectorstore-actions {
@@ -154,10 +155,34 @@
         .tab-content.active {
             display: block;
         }
+
+        #advancedSettings {
+            margin-top: 1rem;
+            padding: 1.5rem;
+            background-color: #f7fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        .form-text {
+            font-size: 0.8rem;
+            color: #718096;
+            margin-top: 0.25rem;
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            border: none;
+        }
+
+        .btn-success:hover {
+            background: linear-gradient(135deg, #218838, #1aa179);
+            transform: translateY(-1px);
+        }
     </style>
     <script>
         let currentFile = null;
         const basePath = window.location.pathname.startsWith('/iview1') ? '/iview1' : '';
+
         function switchTab(tabName) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -215,8 +240,6 @@
             fileInfo.style.display = 'block';
         }
 
-        // embedding.html - Sửa hàm uploadAndProcess()
-
         async function uploadAndProcess() {
             if (!currentFile) {
                 alert('Vui lòng chọn file PDF!');
@@ -243,9 +266,8 @@
                     body: formData
                 });
 
-                // ✅ THÊM: Kiểm tra unauthorized
                 if (response.status === 401) {
-                    alert('Vui lòng đăng nhập để upload file');
+                    alert('Vui lòng đăng nhập để tải lên tài liệu!');
                     window.location.href = `${basePath}/login`;
                     return;
                 }
@@ -276,7 +298,7 @@
 
                                 if (data.status === 'completed') {
                                     setTimeout(() => {
-                                        alert('Vectorstore đã được tạo thành công!');
+                                        alert('Tài liệu đã được xử lý và tạo thành công!');
                                         resetForm();
                                         loadVectorstores();
                                         switchTab('list');
@@ -308,55 +330,84 @@
             document.getElementById('progressFill').style.width = '0%';
         }
 
-        // embedding.html - Sửa hàm loadVectorstores()
-
         async function loadVectorstores() {
             try {
                 const response = await fetch(`${basePath}/embedding/list`);
 
-                // ✅ THÊM: Kiểm tra unauthorized
                 if (response.status === 401) {
                     const data = await response.json();
-                    alert('Vui lòng đăng nhập để xem danh sách vectorstores');
+                    alert('Vui lòng đăng nhập để xem danh sách tài liệu!');
                     window.location.href = data.redirect || `${basePath}/login`;
                     return;
                 }
 
                 const data = await response.json();
-
                 const listContainer = document.getElementById('vectorstoreList');
 
-                if (data.vectorstores.length === 0) {
-                    listContainer.innerHTML = '<p style="text-align:center; color:#718096;">Chưa có vectorstore nào</p>';
+                if (!data.vectorstores || data.vectorstores.length === 0) {
+                    listContainer.innerHTML = '<p style="text-align:center; color:#718096;">Chưa có tài liệu nào được tải lên</p>';
                     return;
                 }
 
-                listContainer.innerHTML = data.vectorstores.map(vs => `
-                <div class="vectorstore-item">
-                    <div class="vectorstore-info">
-                        <h4><i class="fas fa-database"></i> ${vs.pdf_file}</h4>
-                        <div class="vectorstore-meta">
-                            <span><i class="fas fa-cube"></i> ${vs.model_info.name}</span>
-                            <span><i class="fas fa-layer-group"></i> ${vs.num_chunks} chunks</span>
-                            <span><i class="fas fa-file"></i> ${vs.file_size_mb.toFixed(2)} MB</span>
-                            <span><i class="fas fa-clock"></i> ${new Date(vs.created_at).toLocaleString('vi-VN')}</span>
+                // ✅ Ép sắp xếp: tài liệu cá nhân lên trước
+                const sortedStores = [...data.vectorstores].sort((a, b) => {
+                    if (a.is_public === b.is_public) return 0;
+                    return a.is_public ? 1 : -1; // is_public = false (private) lên trước
+                });
+
+                const privateStores = sortedStores.filter(vs => !vs.is_public);
+                const publicStores = sortedStores.filter(vs => vs.is_public);
+
+                function renderStoreCard(vs) {
+                    const tag = vs.is_public
+                        ? `<span class="badge badge-outline badge-info">🌐 Dùng chung</span>`
+                        : `<span class="badge badge-outline badge-warning">👤 Cá nhân</span>`;
+
+                    const pagesInfo = vs.num_pages ? `<span><i class="fas fa-file-alt"></i> ${vs.num_pages} trang</span>` : '';
+
+                    return `
+                        <div class="vectorstore-item ${vs.is_public ? 'public' : 'private'}">
+                            <div class="vectorstore-info">
+                                <h4><i class="fas fa-file-alt"></i> ${vs.pdf_file} ${tag}</h4>
+                                <div class="vectorstore-meta">
+                                    <span><i class="fas fa-brain"></i> ${vs.model_info?.name || "Không rõ"}</span>
+                                    ${pagesInfo}
+                                    <span><i class="fas fa-layer-group"></i> ${vs.num_chunks} phân đoạn</span>
+                                    <span><i class="fas fa-file-invoice"></i> ${vs.file_size_mb?.toFixed(2)} MB</span>
+                                    <span><i class="fas fa-clock"></i> ${new Date(vs.created_at).toLocaleString('vi-VN')}</span>
+                                </div>
+                            </div>
+                            <div class="vectorstore-actions">
+                                <span class="badge badge-success">${vs.status}</span>
+                                <button class="btn btn-success btn-sm" onclick="createInterviewWithVectorstore('${vs._id}', '${vs.pdf_file}', ${vs.num_chunks}, '${vs.topic || ''}')" title="Tạo buổi phỏng vấn">
+                                    <i class="fas fa-calendar-plus"></i>
+                                </button>
+                                <button class="btn btn-info btn-sm" onclick="viewVectorstoreDetail('${vs._id}')" title="Xem chi tiết">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                ${!vs.is_public ? `
+                                <button class="btn btn-secondary btn-sm" onclick="deleteVectorstore('${vs._id}')" title="Xóa">
+                                    <i class="fas fa-trash"></i>
+                                </button>` : ""}
+                            </div>
                         </div>
-                    </div>
-                    <div class="vectorstore-actions">
-                        <span class="badge badge-success">${vs.status}</span>
-                        <button class="btn btn-info btn-sm" onclick="viewVectorstoreDetail('${vs._id}')">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                        <button class="btn btn-secondary btn-sm" onclick="deleteVectorstore('${vs._id}')">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-                `).join('');
+                    `;
+                }
+
+                // ✅ Hiển thị: phần cá nhân trước, phần dùng chung sau
+                listContainer.innerHTML = `
+                    <h3>👤 Tài liệu của bạn</h3>
+                    ${privateStores.length > 0 ? privateStores.map(renderStoreCard).join('') :
+                        '<p style="color:#718096;">Bạn chưa tải lên tài liệu nào.</p>'}
+
+                    <h3 style="margin-top: 30px;">🌐 Tài liệu dùng chung</h3>
+                    ${publicStores.length > 0 ? publicStores.map(renderStoreCard).join('') :
+                        '<p style="color:#718096;">Không có tài liệu dùng chung nào.</p>'}
+                `;
 
             } catch (error) {
                 console.error('Load error:', error);
-                alert('Lỗi khi tải danh sách vectorstores');
+                alert('Lỗi khi tải danh sách tài liệu!');
             }
         }
 
@@ -364,9 +415,8 @@
             window.location.href = `${basePath}/embedding/detail/${id}`;
         }
 
-
         async function deleteVectorstore(id) {
-            if (!confirm('Báº¡n cÃ³ cháº¯c muá»‘n xÃ³a vectorstore nÃ y?')) {
+            if (!confirm('Bạn có chắc chắn muốn xóa tài liệu này không? Hành động này không thể hoàn tác.')) {
                 return;
             }
 
@@ -377,45 +427,19 @@
 
                 const data = await response.json();
 
-                if (data.success) {
-                    alert('ÄÃ£ xÃ³a vectorstore!');
-                    loadVectorstores();
-                } else {
-                    alert('Lá»—i: ' + data.message);
-                }
-            } catch (error) {
-                alert('Lá»—i khi xÃ³a: ' + error.message);
-            }
-        }
-
-        // embedding.html - Sửa hàm deleteVectorstore()
-
-        async function deleteVectorstore(id) {
-            if (!confirm('Bạn có chắc muốn xóa vectorstore này?')) {
-                return;
-            }
-
-            try {
-                const response = await fetch(`${basePath}/embedding/delete/${id}`, {
-                    method: 'DELETE'
-                });
-
-                const data = await response.json();
-
-                // ✅ THÊM: Xử lý các lỗi cụ thể
                 if (response.status === 401) {
-                    alert('Vui lòng đăng nhập lại');
+                    alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
                     window.location.href = `${basePath}/login`;
                     return;
                 }
 
                 if (response.status === 403) {
-                    alert('Bạn không có quyền xóa vectorstore này!');
+                    alert('Bạn không có quyền xóa tài liệu này!');
                     return;
                 }
 
                 if (data.success) {
-                    alert('Đã xóa vectorstore!');
+                    alert('Đã xóa tài liệu thành công!');
                     loadVectorstores();
                 } else {
                     alert('Lỗi: ' + data.message);
@@ -424,9 +448,46 @@
                 alert('Lỗi khi xóa: ' + error.message);
             }
         }
+
+        function createInterviewWithVectorstore(id, pdfFile, numChunks, topic) {
+            // Lưu thông tin vectorstore vào sessionStorage
+            sessionStorage.setItem('preselected_vectorstore', JSON.stringify({
+                id: id,
+                name: pdfFile,
+                pdf_file: pdfFile,
+                num_chunks: numChunks,
+                topic: topic || ''
+            }));
+
+            // Chuyển hướng đến trang tạo buổi phỏng vấn
+            window.location.href = `${basePath}/interview_batch?tab=create`;
+        }
+
+
+        function toggleAdvancedSettings() {
+            const settingsDiv = document.getElementById('advancedSettings');
+            const icon = document.querySelector('#toggleAdvancedBtn .fas');
+
+            if (settingsDiv.style.display === 'none') {
+                settingsDiv.style.display = 'block';
+                icon.classList.remove('fa-cog');
+                icon.classList.add('fa-chevron-up'); // Icon hướng lên khi mở
+            } else {
+                settingsDiv.style.display = 'none';
+                icon.classList.remove('fa-chevron-up');
+                icon.classList.add('fa-cog'); // Icon bánh răng khi đóng
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             setupDragDrop();
             loadVectorstores();
+
+            // ✅ Kiểm tra nếu có tham số từ URL để chuyển tab
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('tab') === 'list') {
+                switchTab('list');
+            }
         });
     </script>
 </head>
@@ -436,8 +497,8 @@
         <header class="header">
             <div class="header-content">
                 <div class="logo">
-                    <i class="fas fa-database"></i>
-                    <span>Vector Store Management</span>
+                    <i class="fas fa-book"></i>
+                    <span>Quản lý tài liệu</span>
                 </div>
                 <a href="{{ base_path }}/" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i> Quay lại
@@ -450,10 +511,10 @@
             <!-- Tabs -->
             <div class="tabs">
                 <button class="tab active" data-tab="upload" onclick="switchTab('upload')">
-                    <i class="fas fa-upload"></i> Tải lên
+                    <i class="fas fa-upload"></i> Tải lên tài liệu
                 </button>
                 <button class="tab" data-tab="list" onclick="switchTab('list')">
-                    <i class="fas fa-list"></i> Danh sách
+                    <i class="fas fa-list"></i> Danh sách tài liệu
                 </button>
             </div>
 
@@ -461,7 +522,7 @@
             <div id="upload-tab" class="tab-content active">
                 <div class="card">
                     <div class="card-header">
-                        <h2><i class="fas fa-file-upload"></i> Tải lên PDF và tạo Vector Store</h2>
+                        <h2><i class="fas fa-file-upload"></i> Tải lên và xử lý tài liệu PDF</h2>
                     </div>
                     <div class="card-body">
                         <!-- Upload Area -->
@@ -470,42 +531,54 @@
                                 <i class="fas fa-cloud-upload-alt"></i>
                             </div>
                             <h3>Kéo thả file PDF vào đây</h3>
-                            <p>hoặc click để chọn file</p>
+                            <p>hoặc click để chọn file từ máy tính</p>
                             <input type="file" id="pdfFile" accept=".pdf" style="display: none;">
                         </div>
 
                         <!-- File Info -->
                         <div id="fileInfo" class="file-info">
-                            <p><strong>File:</strong> <span id="fileName"></span></p>
+                            <p><strong>Tên file:</strong> <span id="fileName"></span></p>
                             <p><strong>Kích thước:</strong> <span id="fileSize"></span></p>
                         </div>
 
-                        <!-- Settings -->
-                        <div style="margin-top: 2rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                            <div class="form-group">
-                                <label>Chunk Size:</label>
-                                <input type="number" id="chunkSize" class="form-control" value="1600" min="100" max="5000">
-                            </div>
-                            <div class="form-group">
-                                <label>Chunk Overlap:</label>
-                                <input type="number" id="chunkOverlap" class="form-control" value="400" min="0" max="1000">
-                            </div>
-                            <div class="form-group">
-                                <label>Model:</label>
-                                <select id="modelName" class="form-control">
-                                    <option value="intfloat/multilingual-e5-large-instruct">Multilingual E5 Large (Recommended)</option>
-                                    <option value="hiieu/halong_embedding">Halong Embedding (Vietnamese)</option>
-                                    <option value="AITeamVN/Vietnamese_Embedding">Vietnamese Embedding</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Splitter Strategy:</label>
-                                <select id="splitterStrategy" class="form-control">
-                                    <option value="nltk">NLTK (Recommended)</option>
-                                    <option value="recursive">Recursive Character</option>
-                                </select>
+                        <div style="margin-top: 2rem;">
+                            <button id="toggleAdvancedBtn" class="btn btn-outline" onclick="toggleAdvancedSettings()">
+                                <i class="fas fa-cog"></i> Cấu hình nâng cao
+                            </button>
+                        </div>
+
+                        <div id="advancedSettings" style="display: none;">
+                            <div style="margin-top: 1rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+                                <div class="form-group">
+                                    <label for="chunkSize">Mức độ chi tiết (Chunk Size):</label>
+                                    <input type="number" id="chunkSize" class="form-control" value="1600" min="100" max="5000">
+                                    <p class="form-text">Số ký tự trong mỗi đoạn văn bản được xử lý. Giá trị lớn hơn giúp giữ ngữ cảnh rộng hơn.</p>
+                                </div>
+                                <div class="form-group">
+                                    <label for="chunkOverlap">Mức độ liên kết (Overlap):</label>
+                                    <input type="number" id="chunkOverlap" class="form-control" value="400" min="0" max="1000">
+                                    <p class="form-text">Số ký tự trùng lặp giữa các đoạn để tránh mất thông tin khi phân tách.</p>
+                                </div>
+                                <div class="form-group">
+                                    <label for="modelName">Mô hình AI xử lý:</label>
+                                    <select id="modelName" class="form-control">
+                                        <option value="intfloat/multilingual-e5-large-instruct">Multilingual E5 Large (Khuyên dùng)</option>
+                                        <option value="hiieu/halong_embedding">Halong Embedding (Tiếng Việt)</option>
+                                        <option value="AITeamVN/Vietnamese_Embedding">Vietnamese Embedding</option>
+                                    </select>
+                                    <p class="form-text">Mô hình trí tuệ nhân tạo dùng để "hiểu" nội dung tài liệu của bạn.</p>
+                                </div>
+                                <div class="form-group">
+                                    <label for="splitterStrategy">Phương pháp tách văn bản:</label>
+                                    <select id="splitterStrategy" class="form-control">
+                                        <option value="nltk">NLTK (Khuyên dùng)</option>
+                                        <option value="recursive">Recursive Character</option>
+                                    </select>
+                                    <p class="form-text">Cách thức tài liệu được phân tách thành các đoạn nhỏ để xử lý.</p>
+                                </div>
                             </div>
                         </div>
+
 
                         <!-- Progress Bar -->
                         <div id="progressContainer" class="progress-container">
@@ -516,9 +589,8 @@
                             </div>
                         </div>
 
-                        <!-- Upload Button -->
                         <button id="uploadBtn" class="btn btn-primary btn-start" onclick="uploadAndProcess()" style="margin-top: 1.5rem;">
-                            <i class="fas fa-cog"></i> Xử lý và tạo Vector Store
+                            <i class="fas fa-rocket"></i> Bắt đầu xử lý
                         </button>
                     </div>
                 </div>
@@ -528,25 +600,21 @@
             <div id="list-tab" class="tab-content">
                 <div class="card">
                     <div class="card-header">
-                        <h2><i class="fas fa-database"></i> Danh sách Vector Stores</h2>
+                        <h2><i class="fas fa-book-open"></i> Danh sách tài liệu đã tải lên</h2>
                         <button class="btn btn-secondary" onclick="loadVectorstores()">
-                            <i class="fas fa-sync"></i> Làm mới
+                            <i class="fas fa-sync"></i> Tải lại danh sách
                         </button>
                     </div>
                     <div class="card-body">
                         <div id="vectorstoreList" class="vectorstore-list">
-                            <p style="text-align:center; color:#718096;">Đang tải...</p>
+                            <p style="text-align:center; color:#718096;">Đang tải danh sách tài liệu...</p>
                         </div>
                     </div>
                 </div>
             </div>
         </main>
     </div>
-
-    <!-- Loading Overlay -->
-    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
-        <div class="spinner"></div>
-        <div class="loading-text">Đang xử lý...</div>
-    </div>
 </body>
 </html>
+
+<!--Đã push lên server-->

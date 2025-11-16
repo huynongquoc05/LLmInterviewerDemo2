@@ -37,6 +37,11 @@ def get_google_flow(redirect_uri=None):
     """Tạo Google OAuth Flow"""
     if redirect_uri is None:
         redirect_uri = url_for('auth.google_callback', _external=True)
+    if "fit.neu.edu.vn" in redirect_uri:
+        redirect_uri = redirect_uri.replace("http://", "https://")
+        print("redirect_uri", redirect_uri)
+        if "/iview1" not in redirect_uri:
+            redirect_uri = redirect_uri.replace("https://fit.neu.edu.vn", "https://fit.neu.edu.vn/iview1")
 
     flow = Flow.from_client_secrets_file(
         CREDENTIALS_FILE,

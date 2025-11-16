@@ -69,10 +69,13 @@ def create_interview_batch():
 
         # ✅ THÊM: Kiểm tra ownership của vectorstore
         vs_user_id = vectorstore_info.get("user_id") or vectorstore_info.get("custom", {}).get("user_id")
-        if vs_user_id != user_id:
+        # ✅ Cho phép nếu vectorstore là public hoặc không gắn user
+        is_public = vectorstore_info.get("is_public", False) or vectorstore_info.get("user_id") is None
+
+        if not is_public and vs_user_id != user_id:
             return jsonify({
                 "success": False,
-                "error": "Permission denied - You can only use your own vectorstores"
+                "error": "Permission denied - You cannot use this private vectorstore"
             }), 403
 
         # Load embedding model
@@ -333,9 +336,7 @@ def export_batch_results(batch_id):
 
 @batch_bp.route("/vectorstores", methods=["GET"])
 def get_available_vectorstores():
-    """Lấy danh sách vectorstores của user để chọn khi tạo batch"""
-
-    # ✅ THÊM: Kiểm tra auth
+    """Lấy danh sách vectorstores (riêng của user + dùng chung) để chọn khi tạo batch"""
     auth_error = require_auth()
     if auth_error:
         return auth_error
@@ -343,12 +344,16 @@ def get_available_vectorstores():
     user_id = get_current_user_id()
 
     try:
-        # ✅ SỬA: Chỉ lấy vectorstores của user này
+        from pymongo import DESCENDING
+
+        # ✅ Lấy vectorstores của user + public
         vectorstores = list(
             db_vectorstores.find({
                 "$or": [
                     {"custom.user_id": user_id},
-                    {"user_id": user_id}
+                    {"user_id": user_id},
+                    {"is_public": True},  # ✅ Thêm: cho phép dùng chung
+                    {"user_id": None}     # ✅ fallback cho dữ liệu cũ (trước khi có is_public)
                 ]
             }).sort("created_at", DESCENDING)
         )
@@ -357,14 +362,22 @@ def get_available_vectorstores():
         for vs in vectorstores:
             options.append({
                 "id": str(vs["_id"]),
-                "name": vs["vectorstore_name"],
-                "path": vs["vectorstore_path"],
+                "name": vs.get("vectorstore_name", "Unnamed"),
+                "path": vs.get("vectorstore_path"),
                 "topic": vs.get("custom", {}).get("topic", "Unknown"),
-                "pdf_file": vs["pdf_file"],
-                "created_at": vs["created_at"],
-                "num_chunks": vs["num_chunks"]
+                "pdf_file": vs.get("pdf_file", "Unknown"),
+                "created_at": vs.get("created_at"),
+                "num_chunks": vs.get("num_chunks", 0),
+                "is_public": vs.get("is_public", vs.get("user_id") is None)
             })
 
-        return jsonify({"success": True, "vectorstores": options})
+        return jsonify({
+            "success": True,
+            "vectorstores": options,
+            "count": len(options)
+        })
+
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500

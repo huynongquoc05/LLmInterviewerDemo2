@@ -55,6 +55,8 @@ class QuestionAttempt:
     difficulty: QuestionDifficulty
     timestamp: str
     question_hash: Optional[str] = None
+    time_limit: Optional[int] = None  # ✅ THÊM FIELD MỚI
+    time_spent: Optional[int] = None   # ✅ THÊM: thời gian thí sinh dùng (giây)
 
 
 @dataclass
@@ -277,7 +279,7 @@ class WarmupManager:
             candidate_context: str,
             topic: str,
             warmup_count: int
-    ) -> str:
+    ) -> Dict:  # ✅ ĐỔI: Trả về Dict
         """Tạo câu hỏi warm-up dựa trên context của thí sinh"""
 
         warmup_templates = {
@@ -328,7 +330,14 @@ OUTPUT: JSON
         result = self.llm.invoke(prompt)
         parsed = _clean_and_parse_json_response(result)
 
-        return parsed.get("question", f"Xin chào {candidate_name}! Bạn đã sẵn sàng cho buổi phỏng vấn chưa?")
+        question = parsed.get("question", f"Xin chào {candidate_name}! Bạn đã sẵn sàng cho buổi phỏng vấn chưa?")
+
+        # ✅ Trả về dict với time_limit cố định cho warmup
+        return {
+            "question": question,
+            "difficulty": "warmup",
+            "time_limit": 90  # Warmup: 90 giây (thoải mái hơn technical)
+        }
 
     def extract_candidate_context(self, profile: str) -> str:
         """
@@ -346,12 +355,29 @@ OUTPUT: JSON
         context = '\n'.join(summary_lines[:10])
         return context if context else profile[:500]
 
-
 class QuestionGenerator:
     """Component chuyên generate câu hỏi"""
 
     def __init__(self, llm: GoogleGenerativeAI):
         self.llm = llm
+
+    def _estimate_time_limit(self, difficulty: QuestionDifficulty, question: str) -> int:
+        """Tính thời gian gợi ý dựa trên độ khó + có code hay không."""
+        base_times = {
+            QuestionDifficulty.VERY_EASY: 30,
+            QuestionDifficulty.EASY: 45,
+            QuestionDifficulty.MEDIUM: 70,
+            QuestionDifficulty.HARD: 100,
+            QuestionDifficulty.VERY_HARD: 140,
+        }
+
+        time_limit = base_times[difficulty]
+
+        # Nếu câu hỏi yêu cầu phân tích code → cộng thêm 30 giây
+        if "<pre><code" in question:
+            time_limit += 30
+
+        return time_limit
 
     def generate_with_context(
             self,
@@ -361,61 +387,129 @@ class QuestionGenerator:
             memory: ConversationMemory,
             candidate_context: str,
             outline_summary: str = ""
-    ) -> str:
+    ) -> Dict:  # ✅ ĐỔI: Trả về Dict thay vì str
         """Generate câu hỏi có nhận thức về thí sinh."""
 
         difficulty_descriptions = {
-            QuestionDifficulty.VERY_EASY: "rất cơ bản — kiểm tra khái niệm, định nghĩa.",
-            QuestionDifficulty.EASY: "cơ bản — yêu cầu giải thích khái niệm hoặc ví dụ đơn giản.",
-            QuestionDifficulty.MEDIUM: "trung cấp — ứng dụng thực tế, kết hợp 1—2 khái niệm.",
-            QuestionDifficulty.HARD: "nâng cao — yêu cầu phân tích sâu hoặc thiết kế nhỏ.",
-            QuestionDifficulty.VERY_HARD: "rất khó — yêu cầu tổng hợp, thiết kế hệ thống."
+            QuestionDifficulty.VERY_EASY: (
+                "rất cơ bản – kiểm tra sự hiểu biết nền tảng: khái niệm, định nghĩa, hoặc ví dụ minh họa đơn giản. "
+                "Câu trả lời ngắn (1–2 câu), không yêu cầu phân tích sâu. "
+                "Nếu chủ đề liên quan đến lập trình hoặc kỹ thuật, có thể hỏi về cú pháp, chức năng, hoặc mục đích sử dụng cơ bản."
+            ),
+            QuestionDifficulty.EASY: (
+                "cơ bản – yêu cầu người học giải thích ý nghĩa, so sánh, hoặc nêu ví dụ thực tế nhỏ. "
+                "Nếu chủ đề thuộc lĩnh vực kỹ thuật, có thể bao gồm một đoạn mã ngắn (dưới 10 dòng) hoặc tình huống kỹ thuật đơn giản để phân tích."
+            ),
+            QuestionDifficulty.MEDIUM: (
+                "trung cấp – kiểm tra khả năng vận dụng kiến thức vào tình huống cụ thể, hoặc phân tích mối liên hệ giữa các khái niệm. "
+                "Nếu là lĩnh vực phi kỹ thuật, câu hỏi có thể yêu cầu trình bày quan điểm, phân tích nguyên nhân – kết quả, hoặc đánh giá tình huống. "
+                "Nếu là lĩnh vực lập trình, có thể yêu cầu phân tích một đoạn code (15–25 dòng) hoặc mô tả cách giải quyết một vấn đề thực tế nhỏ."
+            ),
+            QuestionDifficulty.HARD: (
+                "nâng cao – yêu cầu tư duy phản biện, đánh giá hoặc tổng hợp thông tin từ nhiều nguồn. "
+                "Thường liên quan đến việc giải thích quyết định, đề xuất giải pháp, hoặc so sánh các phương pháp. "
+                "Nếu chủ đề kỹ thuật, có thể yêu cầu thiết kế mô-đun hoặc phân tích hiệu năng của giải pháp."
+            ),
+            QuestionDifficulty.VERY_HARD: (
+                "rất khó – đòi hỏi năng lực tổng hợp, sáng tạo hoặc ứng dụng vào tình huống phức tạp, có nhiều biến số. "
+                "Câu hỏi thường mở, không có câu trả lời duy nhất, và khuyến khích người học lập luận logic hoặc đưa ra quan điểm có dẫn chứng. "
+                "Nếu chủ đề là lập trình hoặc kỹ thuật, có thể mô phỏng một hệ thống hoàn chỉnh hoặc bài toán thiết kế lớn."
+            )
         }
 
         history_text = memory.build_prompt()
 
         prompt = f"""
-Bạn là một Interviewer AI THÔNG MINH.
+        Bạn là một **Interviewer AI chuyên nghiệp và giàu kinh nghiệm**, được huấn luyện để đánh giá năng lực ứng viên qua phỏng vấn kỹ thuật.
 
-THÔNG TIN THÍ SINH:
-{candidate_context}
+        =====================
+        THÔNG TIN THÍ SINH
+        =====================
+        {candidate_context}
 
-LỊCH SỬ HỘI THOẠI:
-{history_text}
+        =====================
+        CHỦ ĐỀ PHỎNG VẤN
+        =====================
+        {topic}
 
-Hãy tạo câu hỏi về "{topic}" với độ khó: {difficulty_descriptions[difficulty]}
+        =====================
+        LỊCH SỬ HỘI THOẠI (gần đây)
+        =====================
+        {history_text or "Chưa có lịch sử hội thoại"}
 
-TÀI LIỆU THAM KHẢO:
-{knowledge_text[:2000] if knowledge_text else "Không có tài liệu"}
+        =====================
+        TÀI LIỆU THAM KHẢO
+        =====================
+        Tài liệu có thể rất dài. Hãy đọc chọn lọc và tập trung vào phần LIÊN QUAN đến câu hỏi mới.
+        {knowledge_text if knowledge_text else "Không có tài liệu"}
 
-TÓM TẮT TÀI LIỆU:
-{outline_summary or "Không có"}
+        
+        
+        =====================
+        NHIỆM VỤ
+        =====================
+        Tạo ra **một câu hỏi phỏng vấn cá nhân hóa** cho thí sinh ở độ khó:
+        ➡️{difficulty.value} {difficulty_descriptions[difficulty]}
 
-YÊU CẦU:
-- Câu hỏi CÁ NHÂN HÓA, phù hợp với level của thí sinh
-- Nếu thí sinh yếu, hỏi lại theo cách khác. Nếu giỏi, đẩy khó hơn
-- Tránh lặp lại câu hỏi tương tự trong lịch sử
-- Nếu thí sinh trả lời tốt câu trước, dành 1 lời khen trước câu hỏi mới
-- Code example dùng <pre><code class='language-java'>...</code></pre>
-- Dùng <br> để xuống dòng cho dễ đọc
+        Câu hỏi cần:
+        1. Phù hợp với năng lực và phong cách trả lời trước đây của thí sinh.  
+           - Nếu thí sinh còn yếu, hãy dùng ngôn từ khích lệ và gợi mở.  
+           - Nếu thí sinh giỏi, đặt câu hỏi thách thức hơn, yêu cầu phân tích sâu.  
+        2. Có thể bao gồm ví dụ code thực tế, rõ ràng, dùng thẻ:
+           <pre><code class='language-java'>...</code></pre>
+        3. Có cấu trúc tự nhiên:
+           - (a) Lời nhận xét hoặc chuyển tiếp ngắn gọn từ câu trước.
+           - (b) Câu hỏi chính (liên quan tới topic).
+           - (c) Một câu gợi mở tùy chọn nếu muốn khuyến khích thí sinh mở rộng.
+        5. Không trùng lặp với các câu hỏi trong lịch sử hội thoại.
+        6. Giữ giọng văn thân thiện, chuyên nghiệp.
+        7. Lưu ý quan trọng: 
+        - Với những câu hỏi dạng lý thuyết/ khái niệm , chỉ đưa ra câu hỏi khi chắc chắn tìm được câu trả lời trong tài liệu.
+        - hãy chú ý tránh hỏi những gì mà tài liệu bị đánh giá là thiếu sót dựa vào bản tóm tắt của llm.
+        
+        =====================
+        TÓM TẮT HOẶC OUTLINE
+        =====================
+        {outline_summary or "Không có"}
+        
+        =====================
+        ĐỊNH DẠNG ĐẦU RA
+        =====================
+        Trả về JSON hợp lệ duy nhất dạng:
 
-OUTPUT: JSON
-{{"question": "lời khen (nếu có) + câu hỏi cá nhân hóa..."}}
-"""
+        {{
+          "question": "<nội dung câu hỏi>",
+          "difficulty": "{difficulty.value}",
+          "time_limit": <số giây thí sinh nên dành để trả lời>
+        }}
 
+        ⚠️ Không thêm mô tả, không trả về văn bản ngoài JSON.
+        """
+        print(f"Đang tạo câu hỏi độ khó {difficulty.value}...")
         result = self.llm.invoke(prompt)
         parsed = _clean_and_parse_json_response(result)
+
         question = parsed.get("question", "Bạn có thể giải thích thêm được không?")
 
-        # Format question: giữ nguyên code blocks
+        # Format code blocks
         question = re.sub(
             r"<pre><code([^>]*)>([\s\S]*?)</code></pre>",
             lambda m: f"<pre><code{m.group(1)}>{m.group(2).replace('<br>', '\n')}</code></pre>",
             question
         )
 
-        return question
+        # ✅ Nếu LLM không trả time_limit → tự tính
+        if "time_limit" not in parsed or not parsed["time_limit"]:
+            time_limit = self._estimate_time_limit(difficulty, question)
+        else:
+            time_limit = int(parsed["time_limit"])
 
+        # ✅ Trả về dict đầy đủ
+        return {
+            "question": question,
+            "difficulty": difficulty.value,
+            "time_limit": time_limit
+        }
 
 class AnswerEvaluator:
     """Component chuyên chấm điểm câu trả lời"""
@@ -429,34 +523,58 @@ class AnswerEvaluator:
             answer: str,
             knowledge_text: str
     ) -> Tuple[float, str]:
-        """Đánh giá câu trả lời."""
+        """Đánh giá câu trả lời chi tiết, có thang điểm rõ ràng và phân tích ngắn."""
+
+        # Nếu knowledge quá dài, rút gọn nhưng thông báo cho LLM biết
+        # truncated_knowledge = knowledge_text
+        # if len(knowledge_text) > 10000:
+        #     truncated_knowledge = knowledge_text[:8000] + "\n\n...(tài liệu bị rút gọn, chỉ hiển thị phần đầu)..."
 
         prompt = f"""
-Bạn là giám khảo phỏng vấn, chấm điểm dựa trên tài liệu tham khảo.
+    Bạn là **giám khảo phỏng vấn kỹ thuật chuyên nghiệp**, nhiệm vụ của bạn là **chấm điểm câu trả lời của ứng viên** dựa trên **tài liệu tham khảo**.
 
-CÂU HỎI:
-{question}
+    ========================
+    CÂU HỎI:
+    ========================
+    {question}
 
-CÂU TRẢ LỜI:
-{answer}
+    ========================
+    CÂU TRẢ LỜI CỦA ỨNG VIÊN:
+    ========================
+    {answer}
 
-TÀI LIỆU THAM KHẢO:
-{knowledge_text[:2000] if knowledge_text else "Không có tài liệu"}
+    ========================
+    TÀI LIỆU THAM KHẢO:
+    ========================
+    {knowledge_text or "Không có tài liệu"}
 
-HÃY ĐÁNH GIÁ VÀ CHẤM ĐIỂM:
-1️⃣ Phân tích ý chính của câu trả lời
-2️⃣ Đối chiếu từng ý với tài liệu:
-   ✅ "Khớp" → 8-10 điểm
-   ⚙️ "Đúng ngoài tài liệu" → 6-8 điểm
-   ❌ "Sai" → 0-4 điểm
-3️⃣ Tổng hợp điểm: Nếu không đủ tài liệu để đánh giá → 5 điểm
+    ========================
+    HƯỚNG DẪN CHẤM ĐIỂM:
+    ========================
+    1️⃣ **Xác định các ý chính** trong câu trả lời (liệt kê 2–5 ý quan trọng).
+    2️⃣ **Đối chiếu từng ý** với tài liệu tham khảo:
+       - ✅ "Khớp chính xác / đúng trọng tâm" → 2 điểm mỗi ý
+       - ⚙️ "Đúng một phần hoặc mở rộng hợp lý ngoài tài liệu" → 1 điểm mỗi ý
+       - ❌ "Sai hoặc không liên quan" → 0 điểm
+    3️⃣ **Tổng hợp điểm /10**:
+       - Điểm = (điểm trung bình các ý) × 10 / 2 (giới hạn 0–10)
+       - Nếu không đủ dữ kiện để đánh giá → 5.0 điểm mặc định.
+    4️⃣ Đưa ra **nhận xét ngắn gọn (1–3 câu)**:
+       - Nêu điểm mạnh và điểm cần cải thiện.
+       - Viết giọng khách quan, mang tính khích lệ.
 
-TRẢ VỀ JSON:
-{{
-  "score": <float 0-10>,
-  "analysis": "<phân tích ngắn gọn>"
-}}
-"""
+    ========================
+    ĐỊNH DẠNG KẾT QUẢ TRẢ VỀ:
+    ========================
+    Trả về JSON hợp lệ duy nhất như sau:
+
+    {{
+      "score": <float 0-10>,
+      "analysis": "<phân tích ngắn gọn, 1–3 câu>"
+    }}
+
+    ⚠️ Không trả về text khác ngoài JSON.
+    """
 
         try:
             result = self.llm.invoke(prompt)
@@ -465,10 +583,13 @@ TRẢ VỀ JSON:
             score = float(parsed.get("score", 5.0))
             analysis = parsed.get("analysis", "Không có nhận xét")
 
+            # Chuẩn hóa điểm
+            score = max(0.0, min(10.0, score))
+
             return score, analysis
 
         except Exception as e:
-            print(f"Lỗi khi chấm điểm: {e}")
+            print(f"⚠️ Lỗi khi chấm điểm: {e}")
             return 5.0, "Lỗi khi chấm điểm, mặc định 5/10"
 
 
@@ -527,13 +648,17 @@ class InterviewProcessor:
             candidate_profile: str,
             classified_level: Level,
             context: InterviewContext
-    ) -> Tuple[InterviewRecord, str]:
+    ) -> Tuple[InterviewRecord, Dict]:  # ✅ ĐỔI: Trả về Dict thay vì str
         """
         Khởi tạo một bản ghi phỏng vấn mới cho thí sinh.
 
         Returns:
             - InterviewRecord: Đối tượng bản ghi trạng thái ban đầu.
-            - str: Câu hỏi warm-up đầu tiên.
+            - Dict: {
+                "question": str,
+                "difficulty": str,
+                "time_limit": int
+              }
         """
         config = context.config
         initial_difficulty = get_initial_difficulty(classified_level, config)
@@ -557,43 +682,56 @@ class InterviewProcessor:
             is_finished=False
         )
 
-        # Tạo câu hỏi warm-up đầu tiên
-        first_question = self.warmup_manager.generate_warmup_question(
+        # ✅ Tạo câu hỏi warm-up đầu tiên (nhận Dict)
+        warmup_data = self.warmup_manager.generate_warmup_question(
             candidate_name=candidate_name.split(',')[0],
             candidate_context=candidate_context,
             topic=context.topic,
             warmup_count=0
         )
 
-        # Thêm câu hỏi vào history (chưa có câu trả lời)
+        # ✅ Thêm câu hỏi vào history với time_limit
         record.history.append(QuestionAttempt(
-            question=first_question,
+            question=warmup_data["question"],
             answer="",
             score=0.0,
             analysis="(warmup - không chấm điểm)",
             difficulty=QuestionDifficulty.VERY_EASY,
             timestamp=datetime.datetime.now().isoformat(),
-            question_hash=calculate_question_hash(first_question)
+            question_hash=calculate_question_hash(warmup_data["question"]),
+            time_limit=warmup_data["time_limit"]  # ✅ THÊM
         ))
 
-        return record, first_question
+        # ✅ Trả về dict thay vì chỉ string
+        return record, warmup_data
 
     def process_answer(
             self,
             record: InterviewRecord,
             context: InterviewContext,
-            answer: str
+            answer: str,
+            time_spent: int = 0  # ✅ THÊM: thời gian thí sinh đã dùng (giây)
     ) -> Tuple[InterviewRecord, Dict]:
         """
         Xử lý câu trả lời của thí sinh, cập nhật bản ghi và tạo câu hỏi tiếp theo.
 
+        Args:
+            record: Bản ghi phỏng vấn hiện tại
+            context: Context của batch
+            answer: Câu trả lời của thí sinh
+            time_spent: Thời gian thí sinh đã dùng (giây)
+
         Returns:
             - InterviewRecord: Bản ghi trạng thái đã được cập nhật.
-            - Dict: Kết quả để trả về cho API (chứa câu hỏi tiếp theo, điểm, etc.).
+            - Dict: Kết quả để trả về cho API (chứa câu hỏi tiếp theo, điểm, time_limit, etc.).
         """
         if record.is_finished:
             summary = self._generate_summary(record, context)
             return record, {"finished": True, "summary": summary}
+
+        # ✅ Cập nhật time_spent vào attempt cuối cùng
+        if record.history:
+            record.history[-1].time_spent = time_spent
 
         if record.current_phase == InterviewPhase.WARMUP:
             return self._handle_warmup_answer(record, context, answer)
@@ -627,47 +765,66 @@ class InterviewProcessor:
         record.warmup_questions_asked += 1
 
         if record.warmup_questions_asked >= config.max_warmup_questions:
-            # Chuyển sang giai đoạn technical
+            # ✅ Chuyển sang giai đoạn technical
             record.current_phase = InterviewPhase.TECHNICAL
-            next_question = self.question_generator.generate_with_context(
+
+            # ✅ Nhận Dict thay vì str
+            next_q_data = self.question_generator.generate_with_context(
                 context.topic, record.current_difficulty, context.knowledge_text,
                 memory, record.candidate_context, context.outline_summary
             )
+
             api_result = {
                 "finished": False,
                 "score": 0,
                 "analysis": "✅ Phần làm quen hoàn tất! Bây giờ chúng ta bắt đầu phần chuyên môn nhé.",
-                "next_question": next_question,
-                "difficulty": record.current_difficulty.value,
+                "next_question": next_q_data["question"],  # ✅
+                "difficulty": next_q_data["difficulty"],  # ✅
+                "time_limit": next_q_data["time_limit"],  # ✅ THÊM
                 "phase": "technical"
             }
+
+            # ✅ Thêm câu hỏi mới vào history với time_limit
+            record.history.append(QuestionAttempt(
+                question=next_q_data["question"],
+                answer="",
+                score=0.0,
+                analysis="(pending)",
+                difficulty=record.current_difficulty,
+                timestamp=datetime.datetime.now().isoformat(),
+                question_hash=calculate_question_hash(next_q_data["question"]),
+                time_limit=next_q_data["time_limit"]  # ✅
+            ))
         else:
-            # Hỏi câu warm-up tiếp theo
-            next_question = self.warmup_manager.generate_warmup_question(
+            # ✅ Hỏi câu warm-up tiếp theo (nhận Dict)
+            warmup_data = self.warmup_manager.generate_warmup_question(
                 record.candidate_name.split(',')[0],
                 record.candidate_context,
                 context.topic,
                 record.warmup_questions_asked
             )
+
             api_result = {
                 "finished": False,
                 "score": 0,
                 "analysis": "✅ Tuyệt vời!",
-                "next_question": next_question,
-                "difficulty": "warmup",
+                "next_question": warmup_data["question"],  # ✅
+                "difficulty": warmup_data["difficulty"],  # ✅
+                "time_limit": warmup_data["time_limit"],  # ✅ THÊM
                 "phase": "warmup"
             }
 
-        # Thêm câu hỏi mới vào history
-        record.history.append(QuestionAttempt(
-            question=next_question,
-            answer="",
-            score=0.0,
-            analysis="(pending)",
-            difficulty=record.current_difficulty,
-            timestamp=datetime.datetime.now().isoformat(),
-            question_hash=calculate_question_hash(next_question)
-        ))
+            # ✅ Thêm câu hỏi mới vào history với time_limit
+            record.history.append(QuestionAttempt(
+                question=warmup_data["question"],
+                answer="",
+                score=0.0,
+                analysis="(pending)",
+                difficulty=record.current_difficulty,
+                timestamp=datetime.datetime.now().isoformat(),
+                question_hash=calculate_question_hash(warmup_data["question"]),
+                time_limit=warmup_data["time_limit"]  # ✅
+            ))
 
         return record, api_result
 
@@ -688,7 +845,7 @@ class InterviewProcessor:
             answer,
             context.knowledge_text
         )
-        print("Thời gian đan gi xong:", datetime.datetime.now().isoformat())
+        print("Thời gian đánh giá xong:", datetime.datetime.now().isoformat())
 
         # Cập nhật attempt và memory
         last_attempt.answer = answer
@@ -706,8 +863,8 @@ class InterviewProcessor:
             summary = self._generate_summary(record, context)
             return record, {"finished": True, "summary": summary}
 
-        # Tạo câu hỏi tiếp theo
-        next_question = self.question_generator.generate_with_context(
+        # ✅ Tạo câu hỏi tiếp theo (nhận Dict)
+        next_q_data = self.question_generator.generate_with_context(
             context.topic,
             record.current_difficulty,
             context.knowledge_text,
@@ -717,22 +874,25 @@ class InterviewProcessor:
         )
         print(f"Thời gian tạo câu hỏi kỹ thuật tiếp theo xong:", datetime.datetime.now().isoformat())
 
+        # ✅ Thêm câu hỏi mới vào history với time_limit
         record.history.append(QuestionAttempt(
-            question=next_question,
+            question=next_q_data["question"],
             answer="",
             score=0.0,
             analysis="(pending)",
             difficulty=record.current_difficulty,
             timestamp=datetime.datetime.now().isoformat(),
-            question_hash=calculate_question_hash(next_question)
+            question_hash=calculate_question_hash(next_q_data["question"]),
+            time_limit=next_q_data["time_limit"]  # ✅
         ))
 
         api_result = {
             "finished": False,
             "score": score,
             "analysis": analysis,
-            "next_question": next_question,
-            "difficulty": record.current_difficulty.value,
+            "next_question": next_q_data["question"],  # ✅
+            "difficulty": next_q_data["difficulty"],  # ✅
+            "time_limit": next_q_data["time_limit"],  # ✅ THÊM
             "phase": "technical"
         }
 
@@ -821,60 +981,3 @@ class InterviewProcessor:
             "question_history": history_dicts
         }
 
-
-# # =======================
-# # 6. USAGE EXAMPLE (Optional)
-# # =======================
-#
-# if __name__ == "__main__":
-#     """
-#     Example usage - chỉ để test logic, không dùng trong production
-#     """
-#     from langchain_google_genai import GoogleGenerativeAI
-#
-#     # Mock LLM
-#     llm = GoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.5)
-#
-#     # Create processor
-#     processor = InterviewProcessor(llm=llm)
-#
-#     # Mock context
-#     context = InterviewContext(
-#         topic="Kiểu dữ liệu trong Java",
-#         outline=["Kiểu dữ liệu cơ sở", "String", "Array"],
-#         knowledge_text="Java có 8 kiểu dữ liệu nguyên thủy...",
-#         outline_summary="Tài liệu đầy đủ về kiểu dữ liệu",
-#         config=InterviewConfig()
-#     )
-#
-#     # Start interview
-#     record, first_question = processor.start_new_record(
-#         batch_id="test_batch_123",
-#         candidate_name="Nguyễn Văn A,K65",
-#         candidate_profile="Tên: Nguyễn Văn A\nLớp: K65\nĐiểm 40%: 7.5",
-#         classified_level=Level.KHA,
-#         context=context
-#     )
-#
-#     print("=" * 60)
-#     print("🎯 STARTED NEW INTERVIEW RECORD")
-#     print("=" * 60)
-#     print(f"Candidate: {record.candidate_name}")
-#     print(f"Level: {record.classified_level.value}")
-#     print(f"Phase: {record.current_phase.value}")
-#     print(f"First Question: {first_question}")
-#     print("=" * 60)
-#
-#     # Simulate answer
-#     test_answer = "Tôi rất thích học Java vì nó rất phổ biến"
-#
-#     updated_record, result = processor.process_answer(record, context, test_answer)
-#
-#     print("\n🔄 PROCESSED ANSWER")
-#     print("=" * 60)
-#     print(f"Answer: {test_answer}")
-#     print(f"Finished: {result.get('finished')}")
-#     print(f"Next Phase: {result.get('phase')}")
-#     if 'next_question' in result:
-#         print(f"Next Question: {result['next_question'][:100]}...")
-#     print("=" * 60)

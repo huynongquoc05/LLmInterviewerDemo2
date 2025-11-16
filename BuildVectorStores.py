@@ -246,7 +246,8 @@ def build_vectorstore(
                     **doc.metadata,
                     "chunk_index": i,
                     "chunk_size": len(chunk),
-                    "splitter": splitter_strategy
+                    "splitter": splitter_strategy,
+
                 }
             })
 
@@ -300,6 +301,7 @@ def build_vectorstore(
     pdf_path = relative_pdf_path
     metadata = {
         "pdf_file": os.path.basename(pdf_path),
+        "num_pages":len(pages),
         "pdf_path": pdf_path,
         "file_hash": file_hash,
         "file_size_mb": os.path.getsize(pdf_path) / (1024 * 1024),

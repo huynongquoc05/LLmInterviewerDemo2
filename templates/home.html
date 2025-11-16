@@ -4,17 +4,15 @@
 
 {% block head %}
     {# Nhúng file CSS dành riêng cho trang chủ #}
-    <link rel="stylesheet" href="{{ base_path }}{{ url_for('static', filename='styles.css') }}">
     <link rel="stylesheet" href="{{ base_path }}{{ url_for('static', filename='home.css') }}">
 {% endblock %}
 
 {% block content %}
 <div class="container">
-    <!-- Hero Section -->
     <div class="hero-section">
         <div class="text-center mb-5">
             <h1 class="display-4 fw-bold mb-3">
-                <i class="fas fa-robot text-primary"></i>
+                <i class="fas fa-robot"></i>
                 Hệ thống Phỏng vấn AI
             </h1>
             <p class="lead text-muted">
@@ -28,88 +26,84 @@
             </div>
             {% endif %}
         </div>
+    </div>
 
-        <!-- Feature Cards -->
-        <div class="row g-4 mt-4">
-            <!-- Vectorstore Card -->
-            <div class="col-md-6">
-                <a href="{% if session.get('user') %}{{ base_path }}/embedding{% else %}{{ base_path }}/login{% endif %}"
-                   class="text-decoration-none">
-                    <div class="feature-card {% if not session.get('user') %}locked{% endif %}">
-                        {% if not session.get('user') %}
-                        <div class="lock-overlay">
-                            <i class="fas fa-lock"></i> Cần đăng nhập
-                        </div>
-                        {% endif %}
-
-                        <div class="feature-icon">
-                            <i class="fas fa-database"></i>
-                        </div>
-                        <h3 class="mb-3">Quản lý Vectorstore</h3>
-                        <p class="text-muted">
-                            Tạo và quản lý knowledge base từ tài liệu PDF.
-                            Hệ thống sẽ tự động xử lý và lưu trữ kiến thức dưới dạng vector embeddings.
-                        </p>
-                        <ul class="list-unstyled mt-3 text-start">
-                            <li><i class="fas fa-check text-success"></i> Upload PDF documents</li>
-                            <li><i class="fas fa-check text-success"></i> Tự động chunk & embedding</li>
-                            <li><i class="fas fa-check text-success"></i> Quản lý nhiều knowledge base</li>
-                        </ul>
-
-                        {% if session.get('user') %}
-                        <button class="btn btn-primary mt-3">
-                            <i class="fas fa-arrow-right"></i> Bắt đầu
-                        </button>
-                        {% else %}
-                        <button class="btn btn-outline-secondary mt-3" disabled>
-                            <i class="fas fa-lock"></i> Đăng nhập để tiếp tục
-                        </button>
-                        {% endif %}
+    <div class="row g-4 feature-cards-row">
+        <div class="col-md-6">
+            <a href="{% if session.get('user') %}{{ base_path }}/embedding{% else %}{{ base_path }}/login{% endif %}"
+               class="text-decoration-none">
+                <div class="feature-card {% if not session.get('user') %}locked{% endif %}">
+                    {% if not session.get('user') %}
+                    <div class="lock-overlay">
+                        <i class="fas fa-lock"></i> Cần đăng nhập
                     </div>
-                </a>
-            </div>
+                    {% endif %}
 
-            <!-- Interview Batch Card -->
-            <div class="col-md-6">
-                <a href="{% if session.get('user') %}{{ base_path }}/interview_batch{% else %}{{ base_path }}/login{% endif %}"
-                   class="text-decoration-none">
-                    <div class="feature-card {% if not session.get('user') %}locked{% endif %}">
-                        {% if not session.get('user') %}
-                        <div class="lock-overlay">
-                            <i class="fas fa-lock"></i> Cần đăng nhập
-                        </div>
-                        {% endif %}
-
-                        <div class="feature-icon">
-                            <i class="fas fa-users"></i>
-                        </div>
-                        <h3 class="mb-3">Phiên Phỏng vấn</h3>
-                        <p class="text-muted">
-                            Tạo và quản lý các phiên phỏng vấn tự động.
-                            AI sẽ điều chỉnh độ khó câu hỏi dựa trên phản hồi của ứng viên.
-                        </p>
-                        <ul class="list-unstyled mt-3 text-start">
-                            <li><i class="fas fa-check text-success"></i> Import danh sách ứng viên</li>
-                            <li><i class="fas fa-check text-success"></i> Adaptive questioning</li>
-                            <li><i class="fas fa-check text-success"></i> Tự động chấm điểm & báo cáo</li>
-                        </ul>
-
-                        {% if session.get('user') %}
-                        <button class="btn btn-success mt-3">
-                            <i class="fas fa-arrow-right"></i> Bắt đầu
-                        </button>
-                        {% else %}
-                        <button class="btn btn-outline-secondary mt-3" disabled>
-                            <i class="fas fa-lock"></i> Đăng nhập để tiếp tục
-                        </button>
-                        {% endif %}
+                    <div class="feature-icon">
+                        <i class="fas fa-database"></i>
                     </div>
-                </a>
-            </div>
+                    <h3 class="mb-3">Quản lý Vectorstore</h3>
+                    <p class="text-muted">
+                        Tạo và quản lý knowledge base từ tài liệu PDF.
+                        Hệ thống sẽ tự động xử lý và lưu trữ kiến thức.
+                    </p>
+                    <ul class="list-unstyled mt-3 text-start">
+                        <li><i class="fas fa-check text-success me-2"></i>Upload PDF documents</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Tự động chunk & embedding</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Quản lý nhiều knowledge base</li>
+                    </ul>
+
+                    {% if session.get('user') %}
+                    <button class="btn btn-primary mt-3">
+                        <i class="fas fa-arrow-right"></i> Bắt đầu
+                    </button>
+                    {% else %}
+                    <button class="btn btn-outline-secondary mt-3" disabled>
+                        <i class="fas fa-lock"></i> Đăng nhập để tiếp tục
+                    </button>
+                    {% endif %}
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-6">
+            <a href="{% if session.get('user') %}{{ base_path }}/interview_batch{% else %}{{ base_path }}/login{% endif %}"
+               class="text-decoration-none">
+                <div class="feature-card card-success {% if not session.get('user') %}locked{% endif %}">
+                    {% if not session.get('user') %}
+                    <div class="lock-overlay">
+                        <i class="fas fa-lock"></i> Cần đăng nhập
+                    </div>
+                    {% endif %}
+
+                    <div class="feature-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h3 class="mb-3">Phiên Phỏng vấn</h3>
+                    <p class="text-muted">
+                        Tạo và quản lý các phiên phỏng vấn tự động.
+                        AI sẽ điều chỉnh độ khó câu hỏi dựa trên phản hồi.
+                    </p>
+                    <ul class="list-unstyled mt-3 text-start">
+                        <li><i class="fas fa-check text-success me-2"></i>Import danh sách ứng viên</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Adaptive questioning</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Tự động chấm điểm & báo cáo</li>
+                    </ul>
+
+                    {% if session.get('user') %}
+                    <button class="btn btn-success mt-3">
+                        <i class="fas fa-arrow-right"></i> Bắt đầu
+                    </button>
+                    {% else %}
+                    <button class="btn btn-outline-secondary mt-3" disabled>
+                        <i class="fas fa-lock"></i> Đăng nhập để tiếp tục
+                    </button>
+                    {% endif %}
+                </div>
+            </a>
         </div>
     </div>
 
-    <!-- Stats Section (Optional - chỉ hiện khi đã đăng nhập) -->
     {% if session.get('user') %}
     <div class="stats-section">
         <div class="row">

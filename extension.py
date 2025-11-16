@@ -2,6 +2,8 @@ from typing import Optional, List
 
 from pymongo import MongoClient
 
+from extensions import embedding_manager
+
 
 def summarize_knowledge_with_llm(knowledge_text: str, topic: str, outline: list[str], llm):
     """
@@ -133,7 +135,7 @@ def generate_voice_LocalTTS(
     """
     try:
         # API endpoint & headers
-        url = "http://localhost:5050/v1/audio/speech"
+        url = "http://localhost:5051/v1/audio/speech"
         api_key = "your_api_key_here"  # Cho phép lấy từ env
         headers = {
             "Content-Type": "application/json",
@@ -165,6 +167,87 @@ def generate_voice_LocalTTS(
         print(f"❌ Lỗi khi gọi LocalTTS: {e}")
         return None
 
+import struct
+from google import genai
+from google.genai import types
+from GetApikey import loadapi
+from pydub import AudioSegment
+import os
+
+def generate_voice_Gemini_simple(text, output_path="gemini.mp3", voice="alnilam"):
+    """
+    Sinh voice từ Google Gemini bằng API non-stream.
+    Convert audio raw L16 → WAV → MP3.
+    """
+
+    api_key = loadapi()
+    if not api_key:
+        print("❌ Không tìm thấy API Key Gemini.")
+        return None
+
+    try:
+        client = genai.Client(api_key=api_key)
+        model = "gemini-2.5-flash-preview-tts"
+
+        res = client.models.generate_content(
+            model=model,
+            contents=text,
+            config=types.GenerateContentConfig(
+                response_modalities=["audio"],  # chỉ cần audio
+                speech_config=types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                            voice_name=voice
+                        )
+                    )
+                ),
+            ),
+        )
+
+        # Lấy bytes raw PCM
+        audio_bytes = res.candidates[0].content.parts[0].inline_data.data
+
+        # --- tạo WAV header ---
+        sample_rate = 24000  # Gemini L16 chuẩn 24kHz
+        bits_per_sample = 16
+        num_channels = 1
+        byte_rate = sample_rate * num_channels * bits_per_sample // 8
+        block_align = num_channels * bits_per_sample // 8
+        subchunk2_size = len(audio_bytes)
+        chunk_size = 36 + subchunk2_size
+
+        wav_header = struct.pack(
+            "<4sI4s4sIHHIIHH4sI",
+            b"RIFF",
+            chunk_size,
+            b"WAVE",
+            b"fmt ",
+            16,
+            1,
+            num_channels,
+            sample_rate,
+            byte_rate,
+            block_align,
+            bits_per_sample,
+            b"data",
+            subchunk2_size,
+        )
+
+        wav_path = output_path.replace(".mp3", ".wav")
+        with open(wav_path, "wb") as f:
+            f.write(wav_header)
+            f.write(audio_bytes)
+
+        # Convert WAV → MP3
+        audio = AudioSegment.from_file(wav_path, format="wav")
+        audio.export(output_path, format="mp3")
+        os.remove(wav_path)
+
+        return output_path
+
+    except Exception as e:
+        print(f"❌ Lỗi Gemini TTS: {e}")
+        return None
 
 
 def get_vectorstore_chunks(vectorstore_id, mongo_uri="mongodb://localhost:27017/"):
@@ -195,7 +278,7 @@ def get_vectorstore_chunks(vectorstore_id, mongo_uri="mongodb://localhost:27017/
         model_name = "intfloat/multilingual-e5-large-instruct"  # fallback an toàn
 
     # Khởi tạo embedding và load FAISS
-    embeddings = HuggingFaceEmbeddings(model_name=model_name)
+    embeddings = embedding_manager.get_model(model_name=model_name, device="cpu")
     vs_local = FAISS.load_local(path, embeddings, allow_dangerous_deserialization=True)
 
     # Trích xuất nội dung các chunk

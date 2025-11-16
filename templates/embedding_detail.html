@@ -1,139 +1,300 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-  <meta charset="UTF-8">
-  <title>Chi tiết Vectorstore</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ base_path }}{{ url_for('static', filename='styles.css') }}">
-  <style>
+{% extends "base.html" %}
 
-    .card {
+{% block title %}Chi tiết Vectorstore - AI Interviewer{% endblock %}
+
+{% block head %}
+  <style>
+    /* --- 1. Thiết lập Biến & Giao diện Tổng thể --- */
+    :root {
+      --primary: #0d6efd;
+      --primary-dark: #0b5ed7;
+      --green: #198754; /* Sử dụng màu xanh lá cây đậm hơn */
+      --green-dark: #157347;
+      --text-dark: #212529;
+      --text-light: #6c757d;
+      /* --bg-body đã được định nghĩa ở base.html (là #f8f9fa) -- */
+      --bg-card: #ffffff;
+      --border-color: #e9ecef;
+      --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      --card-shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.08);
+      --border-radius: 10px; /* Thống nhất bo góc */
+    }
+
+    /* --- 2. Tiêu đề & Phân cấp --- */
+    .page-header {
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1.5rem;
+      margin-bottom: 1.5rem !important;
+    }
+
+    .page-header h2 .fa-database {
+       color: var(--primary);
+    }
+
+    h2, h4 {
+      font-weight: 600;
+    }
+
+    /* --- 3. Nút Bấm (Buttons) --- */
+    .btn {
+      border-radius: 8px;
+      font-weight: 600;
+      padding: 0.6rem 1.2rem;
       border: none;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      border-radius: 10px;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
-    .info-table th {
-      width: 200px;
-      color: #555;
+
+    .btn:hover {
+       transform: translateY(-2px);
+       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
     }
-    .chunk-card {
-      background: #fff;
-      padding: 15px;
-      margin-bottom: 12px;
-      border-radius: 10px;
-      border-left: 4px solid #0d6efd;
+
+    /* Nút chính: Tạo phỏng vấn */
+    .btn-create-interview {
+      background: var(--green);
+      color: white;
     }
-    pre {
-      background: #f8f9fa;
-      padding: 8px;
-      border-radius: 5px;
-      white-space: pre-wrap;
+    .btn-create-interview:hover {
+      background: var(--green-dark);
+      color: white;
+      box-shadow: 0 4px 12px rgba(25, 135, 84, 0.3); /* Đổ bóng màu xanh */
     }
+
+    /* Nút phụ: Hiển thị Chunks */
     .btn-custom {
-      background: #0d6efd;
+      background: var(--primary);
       color: white;
     }
     .btn-custom:hover {
-      background: #0b5ed7;
+      background: var(--primary-dark);
       color: white;
+      box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3); /* Đổ bóng màu xanh */
+    }
+
+    /* Nút Quay lại (Ghi đè .btn-secondary từ base/styles.css nếu cần) */
+    .btn-secondary {
+        background-color: var(--bg-card);
+        color: var(--text-light);
+        border: 1px solid var(--border-color);
+    }
+    .btn-secondary:hover {
+        background-color: #f1f3f5;
+        color: var(--text-dark);
+        border-color: #dee2e6;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 12px; /* Tăng khoảng cách */
+      margin-bottom: 25px; /* Thêm khoảng cách dưới */
+    }
+
+    /* --- 4. Thẻ Metadata --- */
+    .card {
+      border: none;
+      box-shadow: var(--card-shadow);
+      border-radius: var(--border-radius);
+      background: var(--bg-card);
+    }
+
+    .info-table th {
+      width: 180px; /* Cho phép nội dung linh hoạt hơn */
+      color: var(--text-light); /* Làm dịu màu chữ */
+      font-weight: 600;
+      border-top: none;
+      padding: 1rem 0.75rem;
+      vertical-align: top;
+    }
+
+    .info-table td {
+      font-weight: 500;
+      color: var(--text-dark);
+      border-top: none;
+      padding: 1rem 0.75rem;
+    }
+
+    /* Thêm đường kẻ ngang tinh tế giữa các hàng */
+    .info-table tr {
+        border-bottom: 1px solid var(--border-color);
+    }
+    .info-table tr:last-child {
+        border-bottom: none;
+    }
+
+    .info-table a {
+        font-weight: 600;
+        text-decoration: none;
+    }
+    .info-table a:hover {
+        text-decoration: underline;
+    }
+
+    /* --- 5. Thẻ Chunk --- */
+    .chunk-card {
+      background: var(--bg-card);
+      padding: 20px;
+      margin-bottom: 16px;
+      border-radius: var(--border-radius);
+      border-left: 5px solid var(--primary);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+      transition: all 0.3s ease;
+    }
+
+    .chunk-card:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--card-shadow-hover);
+    }
+
+    .chunk-card strong {
+        font-size: 1.1rem;
+        color: var(--primary);
+    }
+
+    /* Khối `pre` (hiển thị nội dung chunk) */
+    pre {
+      background: #f1f3f5; /* Nền xám nhạt hơn */
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      color: #495057;
+      font-family: 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+      font-size: 0.9em;
+      margin-top: 12px;
+      line-height: 1.7; /* Tăng độ dãn dòng */
     }
   </style>
-</head>
-<body class="container py-4">
+{% endblock %}
 
-  <h2><i class="fa-solid fa-database me-2 text-primary"></i>Chi tiết Vectorstore</h2>
-
-  <div id="meta" class="card p-3 mb-4">
-    <div class="text-center text-secondary">Đang tải metadata...</div>
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4 page-header">
+    <h2><i class="fa-solid fa-database me-2"></i>Chi tiết Vectorstore</h2>
+    <a href="{{ base_path }}/embedding?tab=list" class="btn btn-secondary">
+        <i class="fa-solid fa-arrow-left me-2"></i>Quay lại
+    </a>
   </div>
 
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h4><i class="fa-solid fa-layer-group me-2 text-secondary"></i>Các Chunks</h4>
-    <button class="btn btn-custom" id="showChunksBtn">
-      <i class="fa-solid fa-eye me-2"></i>Hiển thị các chunks
+  <div class="action-buttons">
+    <button class="btn btn-create-interview" id="createInterviewBtn">
+      <i class="fa-solid fa-calendar-plus me-2"></i>Tạo buổi phỏng vấn với tài liệu này
     </button>
   </div>
 
+  <div id="meta" class="card p-3 mb-4">
+    <div class="text-center text-secondary p-4">
+      <i class="fa-solid fa-spinner fa-spin me-2"></i>Đang tải metadata...
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-between align-items-center mb-3 mt-5"> <h4><i class="fa-solid fa-layer-group me-2 text-secondary"></i>Các Chunks</h4>
+    <button class="btn btn-custom" id="showChunksBtn">
+      <i class="fa-solid fa-eye me-2"></i>Hiển thị các phân đoạn <button>
+  </div>
+
   <div id="chunks"></div>
+</div>
+{% endblock %}
 
+{% block scripts %}
   <script>
-  const vectorstoreId = "{{ vectorstore_id }}";
-  const basePath = window.location.pathname.startsWith('/iview1') ? '/iview1' : '';
+    const vectorstoreId = "{{ vectorstore_id }}";
+    const basePath = window.location.pathname.startsWith('/iview1') ? '/iview1' : '';
+    let vectorstoreData = null;
 
-  // 🧩 Hiển thị metadata đẹp
-  fetch(`${basePath}/embedding/info/${vectorstoreId}`)
-    .then(res => res.json())
-    .then(data => {
-      if (!data.success) throw new Error(data.error);
-      const vs = data.vectorstore;
-      const meta = document.getElementById('meta');
-      const createdAt = new Date(vs.created_at?.$date || vs.created_at).toLocaleString("vi-VN");
-
-      meta.innerHTML = `
-        <table class="table table-sm info-table mb-0">
-          <tr><th>ID</th><td>${vs._id?.$oid || 'N/A'}</td></tr>
-          <tr><th>Tên Vectorstore</th><td>${vs.vectorstore_name}</td></tr>
-          <tr>
-          <th>PDF gốc</th>
-          <td>
-            <i class="fa-regular fa-file-pdf text-danger"></i>
-            <a href="${basePath}${vs.custom?.original_path?.includes('uploads')
-          ? vs.custom.original_path.replace(/^[\\/]+/, '/').replace(/\\/g, '/')
-          : '/uploads/' + vs.custom.original_path.replace(/^[\\/]+/, '').replace(/\\/g, '/')}"
-   target="_blank">
-  ${vs.pdf_file}
-</a>
-
-          </td>
-
-          </tr>
-
-          <tr><th>Kích thước file</th><td>${vs.file_size_mb.toFixed(2)} MB</td></tr>
-          <tr><th>Số lượng chunks</th><td>${vs.num_chunks}</td></tr>
-          <tr><th>Model</th><td>${vs.model_info?.name || vs.model_name}</td></tr>
-          <tr><th>Ngôn ngữ hỗ trợ</th><td>${vs.model_info?.languages?.join(', ') || '-'}</td></tr>
-          <tr><th>Mô tả model</th><td>${vs.model_info?.description || '-'}</td></tr>
-          <tr><th>Chiến lược tách đoạn</th><td>${vs.splitter_strategy}</td></tr>
-          <tr><th>Chunk size / overlap</th><td>${vs.chunk_size} / ${vs.chunk_overlap}</td></tr>
-          <tr><th>Trạng thái</th><td><span class="badge bg-success">${vs.status}</span></td></tr>
-          <tr><th>Ngày tạo</th><td>${createdAt}</td></tr>
-        </table>
-      `;
-    })
-    .catch(err => {
-      document.getElementById('meta').innerHTML =
-        `<div class="alert alert-danger">Lỗi tải metadata: ${err}</div>`;
-    });
-
-  // 📄 Nút hiển thị chunks
-  document.getElementById('showChunksBtn').addEventListener('click', () => {
-    const btn = document.getElementById('showChunksBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Đang tải...';
-
-    fetch(`${basePath}/embedding/chunks/${vectorstoreId}`)
+    // 🧩 Hiển thị metadata
+    fetch(`${basePath}/embedding/info/${vectorstoreId}`)
       .then(res => res.json())
       .then(data => {
         if (!data.success) throw new Error(data.error);
-        const container = document.getElementById('chunks');
-        container.innerHTML = data.chunks.map(chunk => `
-          <div class="chunk-card">
-            <div class="d-flex justify-content-between">
-              <strong>Chunk #${chunk.index}</strong>
-              <span class="text-muted">${(chunk.content.length / 1600 * 100).toFixed(0)}% độ dài</span>
-            </div>
-            <pre>${chunk.content}</pre>
-          </div>
-        `).join('');
+        vectorstoreData = data.vectorstore;
+        const vs = data.vectorstore;
+        const meta = document.getElementById('meta');
+        const createdAt = new Date(vs.created_at?.$date || vs.created_at).toLocaleString("vi-VN");
+
+        // Thay đổi nhỏ: Xóa padding (p-3) của card và thêm table-borderless
+        meta.classList.remove('p-3');
+        meta.innerHTML = `
+          <table class="table info-table mb-0">
+            <tr><th>ID</th><td>${vs._id?.$oid || 'N/A'}</td></tr>
+            <tr><th>Tên Vectorstore</th><td>${vs.vectorstore_name}</td></tr>
+            <tr>
+              <th>PDF gốc</th>
+              <td>
+                <i class="fa-regular fa-file-pdf text-danger me-1"></i>
+                <a href="${basePath}${vs.custom?.original_path?.includes('uploads')
+                  ? vs.custom.original_path.replace(/^[\\/]+/, '/').replace(/\\/g, '/')
+                  : '/uploads/' + vs.custom.original_path.replace(/^[\\/]+/, '').replace(/\\/g, '/')}"
+                   target="_blank">
+                  ${vs.pdf_file}
+                </a>
+              </td>
+            </tr>
+            <tr><th>Số lượng trang</th><td>${vs.num_pages}</td></tr>
+            <tr><th>Kích thước file</th><td>${vs.file_size_mb.toFixed(2)} MB</td></tr>
+            <tr><th>Số lượng phân đoạn được tách sau khi xử lý</th><td>${vs.num_chunks}</td></tr>
+            <tr><th>Model</th><td>${vs.model_info?.name || vs.model_name}</td></tr>
+            <tr><th>Ngôn ngữ hỗ trợ</th><td>${vs.model_info?.languages?.join(', ') || '-'}</td></tr>
+            <tr><th>Mô tả model</th><td>${vs.model_info?.description || '-'}</td></tr>
+            <tr><th>Chiến lược tách đoạn</th><td>${vs.splitter_strategy}</td></tr>
+            <tr><th>Chunk size / overlap</th><td>${vs.chunk_size} / ${vs.chunk_overlap}</td></tr>
+            <tr><th>Trạng thái</th><td><span class="badge bg-success">${vs.status}</span></td></tr>
+            <tr><th>Ngày tạo</th><td>${createdAt}</td></tr>
+          </table>
+        `;
       })
-      .catch(err => alert('Lỗi tải chunks: ' + err))
-      .finally(() => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-eye me-2"></i>Hiển thị các chunks';
+      .catch(err => {
+        document.getElementById('meta').innerHTML =
+          `<div class="alert alert-danger m-3">Lỗi tải metadata: ${err}</div>`;
       });
-  });
+
+    // 📄 Nút hiển thị chunks
+    document.getElementById('showChunksBtn').addEventListener('click', () => {
+      const btn = document.getElementById('showChunksBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i>Đang tải...';
+
+      fetch(`${basePath}/embedding/chunks/${vectorstoreId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (!data.success) throw new Error(data.error);
+          const container = document.getElementById('chunks');
+          container.innerHTML = data.chunks.map(chunk => `
+            <div class="chunk-card">
+              <div class="d-flex justify-content-between">
+                <strong>Chunk #${chunk.index}</strong>
+                <span class="text-muted small">${(chunk.content.length / 1600 * 100).toFixed(0)}% độ dài</span>
+              </div>
+              <pre>${chunk.content}</pre>
+            </div>
+          `).join('');
+        })
+        .catch(err => alert('Lỗi tải chunks: ' + err))
+        .finally(() => {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-eye me-2"></i>Hiển thị các chunks';
+        });
+    });
+
+    // ✅ Nút tạo buổi phỏng vấn
+    document.getElementById('createInterviewBtn').addEventListener('click', () => {
+      if (!vectorstoreData) {
+        alert('Vui lòng đợi tải xong thông tin tài liệu!');
+        return;
+      }
+
+      sessionStorage.setItem('preselected_vectorstore', JSON.stringify({
+        id: vectorstoreData._id?.$oid || vectorstoreData._id,
+        name: vectorstoreData.vectorstore_name,
+        pdf_file: vectorstoreData.pdf_file,
+        num_chunks: vectorstoreData.num_chunks,
+        topic: vectorstoreData.topic || ''
+      }));
+
+      // Chuyển hướng đến trang tạo buổi phỏng vấn VÀ chọn sẵn tab 'create'
+      window.location.href = `${basePath}/interview_batch?tab=create`;
+    });
   </script>
-</body>
-</html>
+{% endblock %}
