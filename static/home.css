@@ -1,0 +1,193 @@
+/* static/home.css */
+
+/* --- Biến màu từ base.html --- */
+:root {
+    --primary-color: #408BEA;
+    --primary-dark: #357bd8;
+    --text-dark: #212529;
+    --text-light: #6c757d;
+    --bg-light: #f8f9fa;
+    --bg-white: #ffffff;
+    --radius-md: 12px;
+    --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
+    --shadow-lg: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* --- 1. Hero Section (Phần mở đầu) --- */
+.hero-section {
+    /* Nền gradient xanh - Đây là mấu chốt để header.html (chữ trắng) hoạt động */
+    background: linear-gradient(135deg, var(--primary-color) 0%, #3a75c0 100%);
+    color: var(--bg-white);
+    padding: 6rem 1.5rem 8rem 1.5rem; /* Tăng padding, đặc biệt là ở dưới */
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    margin: -1rem -1.5rem 0 -1.5rem; /* Kéo ra sát viền container */
+}
+
+.hero-section .display-4 {
+    font-weight: 700;
+}
+
+.hero-section .text-muted {
+    color: rgba(255, 255, 255, 0.8) !important; /* Ghi đè text-muted */
+}
+
+.hero-section .alert-warning {
+    background-color: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: var(--bg-white);
+    font-weight: 500;
+}
+
+/* --- 2. Feature Cards (Thẻ tính năng) --- */
+
+/* Di chuyển các thẻ LÊN TRÊN, nằm đè lên phần cuối của hero section */
+.feature-cards-row {
+    margin-top: -80px; /* Đây là trick chính */
+    position: relative;
+    z-index: 10;
+}
+
+.feature-card {
+    background: var(--bg-white);
+    border: none;
+    border-radius: var(--radius-md);
+    padding: 2.5rem 2rem;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s ease;
+    height: 100%; /* Đảm bảo các thẻ cao bằng nhau */
+    position: relative; /* Cho lock-overlay */
+    overflow: hidden; /* Cho lock-overlay */
+    display: flex;
+    flex-direction: column; /* Cho phép căn chỉnh nút */
+}
+
+a.text-decoration-none:hover .feature-card {
+    transform: translateY(-8px);
+    box-shadow: var(--shadow-lg);
+}
+
+.feature-icon {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: rgba(64, 139, 234, 0.1); /* Nền xanh mờ */
+    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Biến thể cho thẻ "Phiên Phỏng vấn" (màu xanh lá) */
+.feature-card.card-success .feature-icon {
+    background: rgba(25, 135, 84, 0.1);
+    color: #198754;
+}
+.feature-card.card-success .btn-success {
+    background-color: #198754;
+}
+
+.feature-card h3 {
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.feature-card .list-unstyled {
+    margin-top: auto; /* Đẩy danh sách xuống */
+    padding-top: 1rem;
+}
+
+.feature-card .list-unstyled li {
+    margin-bottom: 0.5rem;
+    color: var(--text-dark);
+    font-weight: 500;
+}
+
+.feature-card .btn {
+    font-weight: 600;
+    padding: 0.6rem 1.2rem;
+}
+
+/* --- 3. Lớp phủ "Khóa" (Locked Overlay) --- */
+.lock-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    color: var(--text-dark);
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.lock-overlay .fas {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: var(--text-light);
+}
+
+.feature-card .btn-outline-secondary:disabled {
+    z-index: 6; /* Đảm bảo nút này nằm trên overlay */
+    position: relative;
+    background: #fff;
+    border-width: 2px;
+}
+
+/* --- 4. Stats Section (Thống kê) --- */
+.stats-section {
+    background: var(--bg-white);
+    padding: 2.5rem;
+    border-radius: var(--radius-md);
+    margin-top: 3rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.stat-item {
+    text-align: center;
+    padding: 1rem;
+}
+
+.stat-item .stat-number {
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    display: block;
+    line-height: 1.2;
+}
+
+/* Biến thể màu cho các stat */
+.stat-item:nth-child(2) .stat-number {
+    color: #198754; /* Xanh lá */
+}
+.stat-item:nth-child(3) .stat-number {
+    color: #fd7e14; /* Cam */
+}
+
+
+.stat-item .stat-label {
+    font-size: 1rem;
+    color: var(--text-light);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Sửa lại 1 chút trong home.html để CSS này hoạt động */
+@media (max-width: 768px) {
+    .hero-section {
+        padding: 4rem 1.5rem 6rem 1.5rem;
+    }
+
+    .feature-cards-row {
+        margin-top: -60px;
+    }
+}

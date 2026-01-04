@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Trang chủ - AI Interviewer{% endblock %}
+
+{% block head %}
+    {# Nhúng file CSS dành riêng cho trang chủ #}
+    <link rel="stylesheet" href="{{ base_path }}{{ url_for('static', filename='home.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="hero-section">
+        <div class="text-center mb-5">
+            <h1 class="display-4 fw-bold mb-3">
+                <i class="fas fa-robot"></i>
+                Hệ thống Phỏng vấn AI
+            </h1>
+            <p class="lead text-muted">
+                Đánh giá năng lực ứng viên tự động, khách quan và hiệu quả với công nghệ AI tiên tiến
+            </p>
+
+            {% if not session.get('user') %}
+            <div class="alert alert-warning mt-4" role="alert">
+                <i class="fas fa-info-circle"></i>
+                <strong>Lưu ý:</strong> Bạn cần đăng nhập để sử dụng các tính năng của hệ thống.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row g-4 feature-cards-row">
+        <div class="col-md-6">
+            <a href="{% if session.get('user') %}{{ base_path }}/embedding{% else %}{{ base_path }}/login{% endif %}"
+               class="text-decoration-none">
+                <div class="feature-card {% if not session.get('user') %}locked{% endif %}">
+                    {% if not session.get('user') %}
+                    <div class="lock-overlay">
+                        <i class="fas fa-lock"></i> Cần đăng nhập
+                    </div>
+                    {% endif %}
+
+                    <div class="feature-icon">
+                        <i class="fas fa-database"></i>
+                    </div>
+                    <h3 class="mb-3">Quản lý tài liệu</h3>
+                    <p class="text-muted">
+                        Tải lên tài liệu của bạn.
+                        Hệ thống sẽ tự động xử lý và lưu trữ kiến thức.
+                    </p>
+                    <ul class="list-unstyled mt-3 text-start">
+                        <li><i class="fas fa-check text-success me-2"></i>Upload PDF documents</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Tự động chunk & embedding</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Quản lý nhiều tài liệu</li>
+                    </ul>
+
+                    {% if session.get('user') %}
+                    <button class="btn btn-primary mt-3">
+                        <i class="fas fa-arrow-right"></i> Bắt đầu
+                    </button>
+                    {% else %}
+                    <button class="btn btn-outline-secondary mt-3" disabled>
+                        <i class="fas fa-lock"></i> Đăng nhập để tiếp tục
+                    </button>
+                    {% endif %}
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-6">
+            <a href="{% if session.get('user') %}{{ base_path }}/interview_batch{% else %}{{ base_path }}/login{% endif %}"
+               class="text-decoration-none">
+                <div class="feature-card card-success {% if not session.get('user') %}locked{% endif %}">
+                    {% if not session.get('user') %}
+                    <div class="lock-overlay">
+                        <i class="fas fa-lock"></i> Cần đăng nhập
+                    </div>
+                    {% endif %}
+
+                    <div class="feature-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h3 class="mb-3">Phiên Phỏng vấn</h3>
+                    <p class="text-muted">
+                        Tạo và quản lý các phiên phỏng vấn tự động.
+                        AI sẽ điều chỉnh độ khó câu hỏi dựa trên phản hồi.
+                    </p>
+                    <ul class="list-unstyled mt-3 text-start">
+                        <li><i class="fas fa-check text-success me-2"></i>Import danh sách ứng viên</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Adaptive questioning</li>
+                        <li><i class="fas fa-check text-success me-2"></i>Tự động chấm điểm & báo cáo</li>
+                    </ul>
+
+                    {% if session.get('user') %}
+                    <button class="btn btn-success mt-3">
+                        <i class="fas fa-arrow-right"></i> Bắt đầu
+                    </button>
+                    {% else %}
+                    <button class="btn btn-outline-secondary mt-3" disabled>
+                        <i class="fas fa-lock"></i> Đăng nhập để tiếp tục
+                    </button>
+                    {% endif %}
+                </div>
+            </a>
+        </div>
+    </div>
+
+    {% if session.get('user') %}
+    <div class="stats-section">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="stat-item">
+                    <span class="stat-number" id="vectorstoreCount">-</span>
+                    <span class="stat-label">Vectorstores</span>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-item">
+                    <span class="stat-number" id="batchCount">-</span>
+                    <span class="stat-label">Phiên phỏng vấn</span>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-item">
+                    <span class="stat-number" id="candidateCount">-</span>
+                    <span class="stat-label">Ứng viên đã phỏng vấn</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if session.get('user') %}
+<script>
+    const basePath = window.location.pathname.startsWith('/iview1') ? '/iview1' : '';
+
+    // Fetch statistics
+    fetch(`${basePath}/embedding/list`)
+        .then(r => r.json())
+        .then(d => {
+            document.getElementById('vectorstoreCount').textContent = d.count || 0;
+        })
+        .catch(() => {
+            document.getElementById('vectorstoreCount').textContent = '0';
+        });
+
+    fetch(`${basePath}/interview_batch/list`)
+        .then(r => r.json())
+        .then(d => {
+            const sessions = d.sessions || [];
+            document.getElementById('batchCount').textContent = sessions.length;
+
+            // Tính tổng số ứng viên
+            const totalCandidates = sessions.reduce((sum, s) => sum + (s.total_count || 0), 0);
+            document.getElementById('candidateCount').textContent = totalCandidates;
+        })
+        .catch(() => {
+            document.getElementById('batchCount').textContent = '0';
+            document.getElementById('candidateCount').textContent = '0';
+        });
+</script>
+{% endif %}
+{% endblock %}

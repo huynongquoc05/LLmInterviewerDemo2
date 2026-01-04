@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2026 - Demo </title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;800&family=Cinzel:wght@700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            font-family: 'Montserrat', sans-serif;
+            /* Background mới: Deep Space Gradient */
+            background: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- SAO TRỜI --- */
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            opacity: 0;
+            z-index: 0; /* Nằm dưới cùng */
+            animation: twinkle var(--duration) ease-in-out infinite;
+            animation-delay: var(--delay);
+        }
+
+        @keyframes twinkle {
+            0% { opacity: 0; transform: scale(0.5); }
+            50% { opacity: 0.8; transform: scale(1.2); box-shadow: 0 0 3px rgba(255, 255, 255, 0.8); }
+            100% { opacity: 0; transform: scale(0.5); }
+        }
+
+        /* --- HÀO QUANG KHI 2026 XUẤT HIỆN --- */
+        .glow-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80vw;
+            height: 80vh;
+            background: radial-gradient(circle, rgba(255, 215, 0, 0.15) 0%, rgba(0, 0, 0, 0) 70%);
+            opacity: 0;
+            z-index: 5;
+            transition: opacity 3s ease-in-out;
+            pointer-events: none;
+        }
+
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 10; /* Canvas pháo hoa nằm trên sao */
+        }
+
+        .stage {
+            position: relative;
+            z-index: 20; /* Chữ nằm trên cùng */
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- 2025 CŨ KỸ --- */
+        .year-old-container {
+            position: absolute;
+            font-family: 'Cinzel', serif;
+            font-size: 15vw;
+            font-weight: 700;
+            color: #4a4a4a; /* Màu xám đá */
+            letter-spacing: 10px;
+            opacity: 1;
+            /* Text shadow tạo khối nhẹ */
+            text-shadow: 0 5px 10px rgba(0,0,0,0.5);
+            transition: opacity 0.1s;
+        }
+
+        /* Đường kiếm ánh sáng */
+        .slash-line {
+            position: absolute;
+            width: 0;
+            height: 3px;
+            background: #fff;
+            box-shadow: 0 0 15px #fff, 0 0 30px #00ffff; /* Xanh cyan điện ảnh */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-15deg);
+            z-index: 30;
+            opacity: 0;
+            border-radius: 50%;
+        }
+
+        /* --- 2026 HUY HOÀNG --- */
+        .year-new-container {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            filter: blur(20px);
+            transform: scale(0.5);
+        }
+
+        .year-new {
+            font-family: 'Cinzel', serif;
+            font-size: 18vw;
+            font-weight: 800;
+            /* Gradient Vàng Kim Loại */
+            background: linear-gradient(to bottom, #cfc09f 22%, #634f2c 24%, #cfc09f 26%, #cfc09f 27%, #ffecb3 40%, #3a2c0f 78%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            position: relative;
+            filter: drop-shadow(0 0 30px rgba(212, 175, 55, 0.4));
+            letter-spacing: -5px;
+            line-height: 1;
+        }
+
+        .message {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 300;
+            font-size: 1.5rem;
+            color: #fff;
+            letter-spacing: 8px;
+            text-transform: uppercase;
+            margin-top: 20px;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        /* --- ANIMATIONS --- */
+
+        /* Chém nhanh */
+        @keyframes slashAction {
+            0% { width: 0; opacity: 0; left: 20%; }
+            10% { opacity: 1; }
+            50% { width: 120vw; opacity: 1; left: 50%; }
+            100% { width: 120vw; opacity: 0; left: 80%; }
+        }
+
+        /* Zoom 2026 */
+        @keyframes cinematicZoom {
+            0% { opacity: 0; transform: scale(3); filter: blur(50px); }
+            100% { opacity: 1; transform: scale(1); filter: blur(0); }
+        }
+
+        @keyframes floatText {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+
+        @keyframes fadeInUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Flash màn hình khi vỡ */
+        .flash-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="flash-overlay" id="flash"></div>
+    <div class="glow-overlay" id="glow"></div>
+    <canvas id="canvas"></canvas>
+
+    <div class="stage">
+        <!-- 2025 -->
+        <div class="year-old-container" id="year2025">2025</div>
+        <div class="slash-line" id="slashLine"></div>
+
+        <!-- 2026 -->
+        <div class="year-new-container" id="year2026">
+            <div class="year-new">2026</div>
+            <div class="message">Break The Limits</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Resize canvas
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // --- CÁC BIẾN QUẢN LÝ ---
+        let shards = [];      // Mảng chứa mảnh vỡ 2025
+        let particles = [];   // Mảng chứa hạt pháo hoa/bụi
+        let fireworks = [];   // Mảng chứa pháo hoa bay lên
+        let isSimulating = true;
+
+        // --- TẠO BACKGROUND SAO (STARFIELD) ---
+        function createStars() {
+            const count = 150; // Số lượng sao
+            const body = document.body;
+            for (let i = 0; i < count; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+
+                // Vị trí ngẫu nhiên
+                const x = Math.random() * 100;
+                const y = Math.random() * 100;
+
+                // Kích thước ngẫu nhiên (nhỏ to khác nhau)
+                const size = Math.random() * 2 + 1;
+
+                // Thời gian lấp lánh ngẫu nhiên
+                const duration = Math.random() * 3 + 2;
+                const delay = Math.random() * 5;
+
+                star.style.left = `${x}%`;
+                star.style.top = `${y}%`;
+                star.style.width = `${size}px`;
+                star.style.height = `${size}px`;
+                star.style.setProperty('--duration', `${duration}s`);
+                star.style.setProperty('--delay', `${delay}s`);
+
+                body.appendChild(star);
+            }
+        }
+        createStars(); // Gọi hàm tạo sao ngay lập tức
+
+        // --- CLASS MẢNH VỠ (SHARD) ---
+        // Tạo ra các đa giác ngẫu nhiên để giả lập mảnh vỡ kính/đá
+        class Shard {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                // Vận tốc nổ tung tóe (Giảm tốc độ để tạo hiệu ứng slow motion)
+                this.vx = (Math.random() - 0.5) * 8; // Trước là 15
+                this.vy = (Math.random() - 0.5) * 8; // Trước là 15
+
+                this.rotation = Math.random() * 360;
+                this.rotationSpeed = (Math.random() - 0.5) * 5; // Quay chậm lại
+
+                this.size = Math.random() * 20 + 5;
+                this.gravity = 0.15; // Giảm trọng lực (trước là 0.4) để rơi chậm như vũ trụ
+
+                // Màu xám đá ngẫu nhiên
+                const gray = Math.floor(Math.random() * 50 + 50);
+                this.color = `rgb(${gray}, ${gray}, ${gray})`;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += this.gravity;
+                this.rotation += this.rotationSpeed;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate((this.rotation * Math.PI) / 180);
+                ctx.fillStyle = this.color;
+
+                // Vẽ hình mảnh vỡ (tam giác nhọn)
+                ctx.beginPath();
+                ctx.moveTo(0, -this.size);
+                ctx.lineTo(this.size, this.size);
+                ctx.lineTo(-this.size, this.size);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        // --- CLASS HẠT BỤI/PHÁO HOA (PARTICLE) ---
+        class Particle {
+            constructor(x, y, color, isFirework = false) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                const speed = isFirework ? Math.random() * 5 + 1 : Math.random() * 2;
+                const angle = Math.random() * Math.PI * 2;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.015 + 0.005;
+                this.gravity = isFirework ? 0.05 : 0;
+            }
+
+            update() {
+                this.vx *= 0.95; // Ma sát
+                this.vy *= 0.95;
+                this.vy += this.gravity;
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.decay;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // --- CLASS PHÁO HOA BAY LÊN (PROJECTILE) ---
+        class FireworkProjectile {
+            constructor(targetX, targetY) {
+                this.x = Math.random() * canvas.width;
+                this.y = canvas.height;
+                this.targetX = targetX;
+                this.targetY = targetY;
+                this.speed = 10;
+                this.angle = Math.atan2(targetY - this.y, targetX - this.x);
+                this.completed = false;
+                this.trail = []; // Đuôi pháo
+            }
+
+            update() {
+                const distance = Math.hypot(this.targetX - this.x, this.targetY - this.y);
+
+                // Di chuyển tới đích
+                this.x += Math.cos(this.angle) * this.speed;
+                this.y += Math.sin(this.angle) * this.speed;
+
+                // Thêm vào đuôi
+                this.trail.push({x: this.x, y: this.y, alpha: 1});
+                if(this.trail.length > 10) this.trail.shift();
+
+                if (distance < this.speed) {
+                    this.completed = true;
+                    createExplosion(this.x, this.y); // Nổ
+                }
+            }
+
+            draw() {
+                // Vẽ đuôi
+                ctx.save();
+                this.trail.forEach(t => {
+                    t.alpha -= 0.1;
+                    ctx.fillStyle = `rgba(255, 215, 0, ${t.alpha})`;
+                    ctx.fillRect(t.x, t.y, 2, 2);
+                });
+                ctx.restore();
+
+                // Vẽ đầu pháo
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 3, 0, Math.PI*2);
+                ctx.fill();
+            }
+        }
+
+        function createExplosion(x, y) {
+            const colors = ['#FFD700', '#FFA500', '#FFFFE0', '#FF4500'];
+            for (let i = 0; i < 60; i++) {
+                particles.push(new Particle(x, y, colors[Math.floor(Math.random() * colors.length)], true));
+            }
+        }
+
+        // --- HÀM TẠO MẢNH VỠ 2025 ---
+        function shatter2025() {
+            const rect = document.getElementById('year2025').getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            // Tạo 150 mảnh vỡ tại vị trí chữ
+            for (let i = 0; i < 150; i++) {
+                // Phân bố ngẫu nhiên trong vùng chữ
+                const x = rect.left + Math.random() * rect.width;
+                const y = rect.top + Math.random() * rect.height;
+                shards.push(new Shard(x, y));
+            }
+
+            // Tạo thêm ít bụi nổ
+            for (let i = 0; i < 50; i++) {
+                particles.push(new Particle(centerX, centerY, '#888'));
+            }
+        }
+
+        // --- VÒNG LẶP CHÍNH (ANIMATION LOOP) ---
+        function loop() {
+            if (!isSimulating) return;
+            requestAnimationFrame(loop);
+
+            // Xóa canvas với vệt mờ
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Vẽ mảnh vỡ
+            for (let i = shards.length - 1; i >= 0; i--) {
+                shards[i].update();
+                shards[i].draw();
+                if (shards[i].y > canvas.height + 100) shards.splice(i, 1);
+            }
+
+            // Vẽ hạt bụi/pháo hoa
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw();
+                if (particles[i].alpha <= 0) particles.splice(i, 1);
+            }
+
+            // Vẽ pháo hoa bay lên
+            for (let i = fireworks.length - 1; i >= 0; i--) {
+                fireworks[i].update();
+                fireworks[i].draw();
+                if (fireworks[i].completed) fireworks.splice(i, 1);
+            }
+
+            if (document.getElementById('year2026').style.opacity > 0.5 && Math.random() < 0.05) {
+                 fireworks.push(new FireworkProjectile(
+                     Math.random() * canvas.width,
+                     Math.random() * canvas.height * 0.4
+                 ));
+            }
+        }
+        loop();
+
+        // --- KỊCH BẢN CHƯƠNG TRÌNH ---
+        window.onload = () => {
+            const slashLine = document.getElementById('slashLine');
+            const year2025 = document.getElementById('year2025');
+            const flash = document.getElementById('flash');
+            const glow = document.getElementById('glow');
+            const year2026 = document.getElementById('year2026');
+            const message = document.querySelector('.message');
+
+            // 1. KÉO DÀI THỜI GIAN CHỜ: 3.5 giây rồi mới CHÉM
+            setTimeout(() => {
+                slashLine.style.animation = "slashAction 0.6s cubic-bezier(0.1, 0.7, 1.0, 0.1) forwards";
+
+                // 2. Tại thời điểm chém trúng (0.3s sau khi bắt đầu chém)
+                setTimeout(() => {
+                    // Flash màn hình
+                    flash.style.opacity = 1;
+                    flash.style.transition = "opacity 0.1s";
+                    setTimeout(() => flash.style.opacity = 0, 100);
+
+                    // Ẩn chữ 2025 DOM
+                    year2025.style.visibility = 'hidden';
+
+                    // Kích hoạt vỡ vụn (Các mảnh sẽ rơi chậm do trọng lực thấp)
+                    shatter2025();
+
+                }, 300);
+
+                // 3. Sau khi vỡ tan một lúc, hiện 2026 (Tăng delay lên chút để ngắm mảnh vỡ)
+                setTimeout(() => {
+                    // Hiện background hào quang
+                    glow.style.opacity = 1;
+
+                    year2026.style.opacity = 1;
+                    year2026.style.animation = "cinematicZoom 2.5s cubic-bezier(0.22, 1, 0.36, 1) forwards";
+
+                    setTimeout(() => {
+                        document.querySelector('.year-new').style.animation = "floatText 6s ease-in-out infinite";
+                    }, 2500);
+
+                    message.style.animation = "fadeInUp 2s ease-out 1s forwards";
+
+                    // Bắn loạt pháo hoa chào mừng
+                    for(let i=0; i<10; i++) {
+                        setTimeout(() => {
+                            fireworks.push(new FireworkProjectile(
+                                Math.random() * canvas.width,
+                                Math.random() * canvas.height * 0.5
+                            ));
+                        }, i * 200);
+                    }
+
+                }, 1500); // 1.5s sau khi chém (đủ lâu để thấy các mảnh vỡ trôi)
+
+            }, 3500); // 3.5s chờ ban đầu
+        };
+    </script>
+</body>
+</html>

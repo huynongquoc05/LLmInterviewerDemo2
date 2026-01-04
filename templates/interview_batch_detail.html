@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chi tiết buổi phỏng vấn</title>
+<!--    <link rel="stylesheet" href="{{ base_path }}{{ url_for('static', filename='styles.css') }}">-->
+    <link rel="stylesheet" href="{{ base_path }}{{ url_for('static', filename='interview_batch_detail.css') }}">
+    <link rel="stylesheet" href="{{ base_path }}{{ url_for('static', filename='prism.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="{{ base_path }}{{ url_for('static', filename='prism.js') }}"></script>
+    <style>
+        /* Timer styles */
+        .timer-display {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            margin: 15px 0;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        .timer-display.warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            animation: pulse 1s infinite;
+        }
+        .timer-display.expired {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* Voice recognition button */
+        .voice-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+        .voice-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(240, 147, 251, 0.4);
+        }
+        .voice-btn.recording {
+            background: linear-gradient(135deg, #f5576c 0%, #c23866 100%);
+            animation: pulse 1.5s infinite;
+        }
+        .voice-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* End interview button */
+        .btn-end-interview {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+            margin-left: 10px;
+        }
+        .btn-end-interview:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        /* Collapsible sections */
+        .collapsible-section {
+            margin-bottom: 20px;
+        }
+        .collapsible-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        .collapsible-header:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        .collapsible-header i {
+            transition: transform 0.3s;
+        }
+        .collapsible-header.active i {
+            transform: rotate(180deg);
+        }
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .collapsible-content.active {
+            max-height: 2000px;
+            transition: max-height 0.5s ease-in;
+        }
+
+        /* Answer controls */
+        .answer-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+    </style>
+    <script>
+        const SESSION_ID = "{{ session_id }}";
+        window.SESSION_ID = SESSION_ID;
+    </script>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-clipboard-list"></i>
+                    <span id="sessionName">Chi tiết buổi phỏng vấn</span>
+                </div>
+                <div class="header-actions">
+                    <a href="{{ base_path }}/interview_batch" class="btn btn-secondary btn-sm">
+                        <i class="fas fa-arrow-left"></i> Quay lại
+                    </a>
+                    <button class="btn btn-success btn-sm" onclick="exportResults()">
+                        <i class="fas fa-download"></i> Export CSV
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteSession()">
+                        <i class="fas fa-trash"></i> Xóa
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content detail-container">
+            <div class="info-grid">
+                <div class="info-box" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <h3>Chủ đề</h3>
+                    <div id="topicName" class="value" style="font-size: 24px;"></div>
+                </div>
+                <div class="info-box" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <h3>Tổng thí sinh</h3>
+                    <div id="totalCandidates" class="value"></div>
+                </div>
+                <div class="info-box" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <h3>Đã hoàn thành</h3>
+                    <div id="completedCandidates" class="value"></div>
+                </div>
+                <div class="info-box" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                    <h3>Tiến độ</h3>
+                    <div id="progressPercent" class="value"></div>
+                </div>
+            </div>
+
+            <div class="collapsible-section">
+                <div class="collapsible-header" onclick="toggleCollapse('configCollapse')">
+                    <span><i class="fas fa-cog"></i> Cấu hình phỏng vấn</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div id="configCollapse" class="collapsible-content">
+                    <div class="grid-two-columns" style="margin-top: 15px;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-sliders-h"></i> Thông số</h3>
+                            </div>
+                            <div class="card-body">
+                                <div id="configInfo" style="font-size: 14px; line-height: 1.8;"></div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">
+                                <h3><i class="fas fa-list"></i> Outline</h3>
+                            </div>
+                            <div class="card-body">
+                                <div id="outlineInfo" style="font-size: 14px; line-height: 1.8;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="collapsible-section">
+                <div class="collapsible-header" onclick="toggleCollapse('knowledgeCollapse')">
+                    <span><i class="fas fa-book-open"></i> Tài liệu kiến thức</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div id="knowledgeCollapse" class="collapsible-content">
+                    <div class="card" style="margin-top: 15px;">
+                        <div class="card-body" style="font-size: 14px; line-height: 1.8;">
+                            <h4 style="margin-top: 0; color: #2d3748;">📜 Nội dung tài liệu gốc</h4>
+                            <div style="background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; max-height: 400px; overflow-y: auto;">
+                                <pre id="knowledgeText" style="white-space: pre-wrap; font-family: 'Consolas', monospace; font-size: 13px; color: #4a5568;">Đang tải...</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-users"></i> Danh sách thí sinh</h2>
+                </div>
+                <div class="card-body">
+                    <div id="candidatesGrid" class="candidates-grid"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="interviewModal" class="interview-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-circle"></i> <span id="modalCandidateName"></span></h2>
+                <button class="btn btn-secondary btn-sm" onclick="Interview.close()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="timerDisplay" class="timer-display" style="display: none;">
+                    <i class="fas fa-clock"></i>
+                    <span id="timerText">00:00</span>
+                    <span id="timerLabel" style="font-size: 14px; opacity: 0.9;"></span>
+                </div>
+
+                <div class="modal-split-layout">
+                    <div id="questionSection" class="card" style="margin-bottom: 20px;">
+                        <div class="card-header">
+                            <h3><i class="fas fa-question"></i> Câu hỏi</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="modalQuestion" class="question-text"></div>
+                        </div>
+                    </div>
+
+                    <div id="answerSection" class="card" style="margin-bottom: 20px;">
+                        <div class="card-header">
+                            <h3><i class="fas fa-keyboard"></i> Câu trả lời</h3>
+                        </div>
+                        <div class="card-body">
+                            <textarea id="answerTextarea" class="form-control" rows="4" placeholder="Nhập câu trả lời hoặc nhấn nút mic để nói..."></textarea>
+                            <div class="answer-controls">
+                                <button class="btn btn-success" onclick="Interview.submitAnswer()">
+                                    <i class="fas fa-paper-plane"></i> Gửi câu trả lời
+                                </button>
+                                <button id="voiceBtn" class="voice-btn" onclick="Voice.toggle()">
+                                    <i class="fas fa-microphone"></i> Nói
+                                </button>
+                                <button class="btn-end-interview" onclick="Interview.endEarly()">
+                                    <i class="fas fa-stop-circle"></i> Kết thúc sớm
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="resultSection" class="card" style="display: none;">
+                    <div class="card-header">
+                        <h3><i class="fas fa-chart-line"></i> Kết quả</h3>
+                    </div>
+                    <div class="card-body"></div>
+                </div>
+
+                <div style="text-align: center;">
+                    <button id="finishBtn" class="btn btn-primary" onclick="Interview.finish()" style="display: none;">
+                        <i class="fas fa-check"></i> Hoàn thành và đóng
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <div class="loading-text">Đang xử lý...</div>
+    </div>
+
+    <input type="hidden" id="sessionIdData" value="{{ session_id }}">
+
+    <script src="{{ base_path }}{{ url_for('static', filename='interview_batch_detail.js') }}"></script>
+</body>
+</html>

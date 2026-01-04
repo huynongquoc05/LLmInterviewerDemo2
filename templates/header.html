@@ -1,0 +1,63 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-transparent shadow-sm">
+    <div class="container">
+        <!-- Logo & Brand -->
+        <a class="navbar-brand d-flex align-items-center" href="{{ base_path }}/">
+            <i class="fas fa-robot me-2" style="font-size: 1.5rem;"></i>
+            <span style="font-weight: 600; font-size: 1.2rem;">AI Interviewer</span>
+        </a>
+
+        <!-- Toggler for mobile -->
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" style="color: #fff;" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <!-- Navigation Links -->
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto align-items-center">
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ base_path }}/">
+                        <i class="fas fa-home"></i> Trang chủ
+                    </a>
+                </li>
+
+                <!-- Chỉ hiển thị nếu đã đăng nhập -->
+                {% if session.get('user') %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ base_path }}/embedding">
+                        <i class="fas fa-database"></i> Vectorstores
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ base_path }}/interview_batch">
+                        <i class="fas fa-users"></i> Phỏng vấn
+                    </a>
+                </li>
+                {% if session.get('user') and session.get('user').role == 'admin' %}
+                <li class="nav-item">
+                    <a class="nav-link text-warning" href="{{ base_path }}/admin/">
+                        <i class="fas fa-shield-alt"></i> Admin Panel
+                    </a>
+                </li>
+                {% endif %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-user-circle"></i> {{ session.get('user').get('name', 'User') }}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{{ base_path }}/profile"><i class="fas fa-id-card"></i> Hồ sơ</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="{{ base_path }}/logout"><i class="fas fa-sign-out-alt"></i> Đăng xuất</a></li>
+                    </ul>
+                </li>
+                {% else %}
+                <!-- Nút đăng nhập -->
+                <li class="nav-item">
+                    <a class="btn btn-light btn-sm ms-2" href="{{ base_path }}/login">
+                        <i class="fas fa-sign-in-alt"></i> Đăng nhập
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</nav>

@@ -1,0 +1,576 @@
+/* --- General Resets and Typography --- */
+:root {
+    --primary-color: #667eea;
+    --secondary-color: #764ba2;
+    --success-color: #48bb78;
+    --warning-color: #ed8936;
+    --danger-color: #f56565;
+    --light-gray: #e2e8f0;
+    --medium-gray: #a0aec0;
+    --dark-gray: #4a5568;
+    --background-color: #f8fafc;
+    --card-background: #ffffff;
+    --text-color: #2d3748;
+    --font-family: 'Inter', sans-serif;
+    --border-radius: 8px;
+    --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+body {
+    font-family: var(--font-family);
+    background-color: var(--background-color);
+    color: var(--text-color);
+    margin: 0;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* --- Header --- */
+.header {
+    background: var(--card-background);
+    padding: 20px;
+    border-radius: var(--border-radius);
+    margin-bottom: 30px;
+    box-shadow: var(--box-shadow);
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap; /* Cho phép các item xuống dòng nếu không đủ chỗ */
+    gap: 15px;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.logo i {
+    margin-right: 12px;
+}
+
+.header-actions {
+    display: flex;
+    flex-wrap: wrap; /* Cho phép các nút xuống dòng */
+    gap: 10px;
+}
+
+/*Footer*/
+
+
+
+
+/* --- Buttons --- */
+.btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease-in-out;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+.btn-primary { background-color: var(--primary-color); color: white; }
+.btn-secondary { background-color: var(--light-gray); color: var(--dark-gray); }
+.btn-success { background-color: var(--success-color); color: white; }
+.btn-danger { background-color: var(--danger-color); color: white; }
+
+/* --- Cards --- */
+.card {
+    background: var(--card-background);
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.card-header {
+    padding: 16px 24px;
+    background-color: #f7faff;
+    border-bottom: 1px solid var(--light-gray);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-header h2, .card-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.card-body {
+    padding: 24px;
+}
+
+/* --- Main Content & Grids --- */
+.main-content {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.info-box {
+    color: white;
+    padding: 25px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.info-box:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+}
+
+.info-box h3 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    opacity: 0.9;
+    font-weight: 500;
+}
+
+.info-box .value {
+    font-size: 36px;
+    font-weight: 700;
+}
+
+/* --- Progress Ring --- */
+.progress-ring {
+    width: 120px;
+    height: 120px;
+}
+
+.progress-ring circle {
+    transition: stroke-dashoffset 0.5s ease-out;
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+}
+
+/* Cấu hình và Outline */
+.grid-two-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+
+/* --- Candidate Cards --- */
+.candidates-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.candidate-card {
+    border: 1px solid var(--light-gray);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    background: var(--card-background);
+}
+
+.candidate-card:hover {
+    box-shadow: var(--box-shadow);
+    transform: translateY(-3px);
+    border-color: var(--primary-color);
+}
+
+.candidate-card.pending { border-left: 4px solid var(--medium-gray); }
+.candidate-card.in_progress { border-left: 4px solid var(--warning-color); }
+.candidate-card.completed { border-left: 4px solid var(--success-color); }
+
+.status-badge {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-pending { background: #e2e8f0; color: #4a5568; }
+.status-in_progress { background: #feebc8; color: #c05621; }
+.status-completed { background: #c6f6d5; color: #22543d; }
+
+/* --- Interview Modal --- */
+.interview-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 1000;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.interview-modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: var(--background-color);
+    border-radius: 12px;
+    max-width: 900px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    animation: slideIn 0.4s ease;
+}
+
+@keyframes slideIn {
+    from { transform: translateY(-30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--light-gray);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.modal-body {
+    padding: 24px;
+}
+
+.question-text {
+    font-size: 16px;
+    line-height: 1.7;
+}
+
+.form-control {
+    width: 100%;
+    box-sizing: border-box; /* Quan trọng để padding không làm tăng width */
+    padding: 12px;
+    border: 1px solid var(--light-gray);
+    border-radius: var(--border-radius);
+    font-size: 16px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    resize: vertical;
+    min-height: 100px;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+}
+
+/* --- Loading Overlay --- */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid var(--light-gray);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.loading-text {
+    margin-top: 15px;
+    font-weight: 500;
+    color: var(--dark-gray);
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* --- Score & Summary Styling --- */
+.score-result {
+    padding: 20px;
+    border: 1px solid var(--light-gray);
+    border-radius: var(--border-radius);
+    background: #f8f9fa;
+}
+
+.score-display {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+.score-number {
+    font-size: 24px;
+    font-weight: 700;
+    padding: 10px 15px;
+    border-radius: 6px;
+    color: white;
+}
+.score-bar {
+    flex-grow: 1;
+    height: 10px;
+    background: var(--light-gray);
+    border-radius: 5px;
+    overflow: hidden;
+}
+.score-fill { height: 100%; border-radius: 5px; }
+.score-good { background-color: var(--success-color); }
+.score-average { background-color: var(--warning-color); }
+.score-poor { background-color: var(--danger-color); }
+.score-analysis { font-style: italic; color: var(--dark-gray); }
+
+.interview-summary { display: flex; flex-direction: column; gap: 20px; }
+.summary-header { text-align: center; border-bottom: 1px solid var(--light-gray); padding-bottom: 20px; }
+.final-score {
+    font-size: 48px;
+    font-weight: bold;
+    color: white;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 10px auto 0;
+}
+.question-history { display: flex; flex-direction: column; gap: 15px; }
+.question-history-item { background: white; padding: 15px; border-radius: var(--border-radius); border: 1px solid var(--light-gray); }
+.question-history-item h4 { margin: 0 0 10px; }
+.difficulty-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    font-size: 12px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    color: white;
+}
+.difficulty-easy { background: #34d399; }
+.difficulty-medium { background: #fbbf24; }
+.difficulty-hard { background: #f87171; }
+
+/* --- Audio Controls --- */
+.audio-controls {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--light-gray);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.audio-player { display: flex; align-items: center; gap: 10px; }
+.btn-audio {
+    background: var(--light-gray);
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--dark-gray);
+    transition: background-color 0.2s;
+}
+.btn-audio:hover { background: #d1d5db; }
+.audio-status { font-size: 14px; font-weight: 500; }
+.btn.active { background: var(--primary-color); color: white; }
+
+
+/*
+==============================================
+--- Responsive Media Queries ---
+==============================================
+*/
+
+/* Cho máy tính bảng và các thiết bị nhỏ hơn */
+@media (max-width: 992px) {
+    .container {
+        padding: 15px;
+    }
+
+    .info-box .value {
+        font-size: 32px;
+    }
+
+    /* Chuyển layout 2 cột thành 1 cột */
+    .grid-two-columns {
+        grid-template-columns: 1fr;
+    }
+
+    .candidates-grid {
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    }
+}
+
+/* Cho điện thoại di động */
+@media (max-width: 768px) {
+    .header-content {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .logo {
+        font-size: 20px;
+    }
+
+    .card-header h2, .card-header h3 {
+        font-size: 16px;
+    }
+
+    .card-body {
+        padding: 16px;
+    }
+
+    .info-grid {
+        gap: 15px;
+    }
+
+    .info-box {
+        padding: 20px;
+    }
+
+    .info-box .value {
+        font-size: 28px;
+    }
+
+    .modal-content {
+        width: 95%;
+        max-height: 95vh;
+    }
+
+    .modal-body {
+        padding: 16px;
+    }
+
+    .audio-controls {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+/* Cho các màn hình rất nhỏ */
+@media (max-width: 480px) {
+    .container {
+        padding: 10px;
+    }
+
+    .info-grid, .candidates-grid {
+        /* Chuyển thành 1 cột duy nhất */
+        grid-template-columns: 1fr;
+    }
+
+    .header-actions {
+        width: 100%;
+    }
+
+    .header-actions .btn {
+        flex-grow: 1; /* Các nút sẽ giãn ra đều nhau */
+        justify-content: center;
+    }
+
+    .modal-header h2 {
+        font-size: 16px;
+    }
+
+    .final-score {
+        width: 100px;
+        height: 100px;
+        font-size: 38px;
+    }
+
+    .score-display {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+
+/* Alert box cho thông báo resume */
+.alert {
+    padding: 12px 16px;
+    border-radius: 8px;
+    border-left: 4px solid;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.alert-info {
+    background: #e3f2fd;
+    border-color: #2196f3;
+    color: #0d47a1;
+}
+
+.alert i {
+    font-size: 18px;
+}
+
+/* Button warning cho phỏng vấn lại */
+.btn-warning {
+    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    color: white;
+    border: none;
+}
+
+.btn-warning:hover {
+    background: linear-gradient(135deg, #f57c00 0%, #e65100 100%);
+    transform: translateY(-2px);
+}
